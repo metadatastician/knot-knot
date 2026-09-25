@@ -59,6 +59,7 @@ mise.toml                  # pinned toolchains
 .git/
 .github/                 # community health + workflows (GitHub reads this path and no other) + versioned git hooks (.github/hooks/, wired via core.hooksPath)
 www/                       # site-operations bundle; canonical .well-known/ lives at www/.well-known/ (issue #53)
+?interop/                  # optional Julia environment for the KnotTheory.jl/Skein.jl bridge tests (Pkg convention, like docs/); URL-resolved and exercised on demand (`just interop`), never in the MUST CI path — see STATE.a2ml blockers 2
 .machine_readable/          # manifests, contractiles, policies. Renamed back from machine-readable/ 2026-09-17 by owner ruling, for one canonical spelling estate-wide (census at the 2026-08 divergence: 48 dotted vs 9 hyphenated — the majority was already dotted). See docs/governance/TEMPLATE-LINEAGE-AUDIT.adoc
 docs/                      # human documentation
 build/                     # build orchestration: just/ phase modules, container/, docs-seed/, templates/, guix.scm (canon 1.2.1 guix-primary template_ref = "build/")

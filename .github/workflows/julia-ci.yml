@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MPL-2.0
 # KnotKnot — Julia CI (julia-library archetype)
 #
 # Pin posture (estate ruling R2, 2026-09-02; D38/D39 resolution 2026-09-19):
@@ -5,7 +6,7 @@
 # Refs resolved 2026-09-19 against the estate estate-pins:
 #   actions/checkout@v7.0.1        = 3d3c42e5aac5ba805825da76410c181273ba90b1
 #   julia-actions/setup-julia@v3.0.2 = fa02766e078afaaf09b14210362cee14137e6a32
-#   julia-actions/cache@v2         = a7bed9df697e5d7309d68afe7542a87621a8b6c8
+#   julia-actions/cache@v3         = a45e8fa8be21c18a06b7177052533149e61e9b38
 # Regenerate the lock in the SAME PR as any uses: change (estate MUST).
 
 name: Julia CI
@@ -15,6 +16,9 @@ on:
     branches: [main, master]
   pull_request:
 
+permissions:
+  contents: read
+
 # No `continue-on-error` on a MUST check (R1–R9): a red job is the gate
 # working. Coverage (R4) is reported by the estate's standard coverage
 # upload where present; it is not a blocker at template level.
@@ -22,6 +26,8 @@ jobs:
   fmt:
     name: Format (JuliaFormatter)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: julia-actions/setup-julia@v3.0.2
@@ -33,22 +39,43 @@ jobs:
             using Pkg
             Pkg.add("JuliaFormatter")
             using JuliaFormatter
-            for f in filter(isfile, Iterators.flatten((
+            files = filter(isfile, Iterators.flatten((
                 [joinpath("src", x) for x in readdir("src")],
                 [joinpath("test", x) for x in readdir("test") if x != "cases"],
                 [joinpath("test", "cases", x) for x in readdir(joinpath("test", "cases"))],
             )))
+            bad = String[]
+            for f in files
                 text = read(f, String)
                 formatted = JuliaFormatter.format_string(text)
                 if text != formatted
-                    @error "not formatted" file=f
-                    exit(1)
+                    push!(bad, f)
                 end
-            end'
+            end
+            # Fail loudly AND legibly. A bare exit(1) leaves the offending
+            # file names in a log that is not always retrievable (STATE.a2ml
+            # blocker 1 records that sandboxes cannot reach the Actions log
+            # host). Emitting each canonical formatting as a check-run
+            # annotation makes the exact expected bytes visible in the Checks
+            # UI and through the annotations API, so the fix is mechanical.
+            # The gate itself is unchanged: any unformatted file still fails.
+            for f in bad
+                formatted = JuliaFormatter.format_string(read(f, String))
+                if length(formatted) > 20000
+                    formatted = formatted[1:20000] * "\n… (truncated)"
+                end
+                msg = replace(formatted, "%" => "%25")
+                msg = replace(msg, "\r" => "%0D")
+                msg = replace(msg, "\n" => "%0A")
+                println("::error file=$f::JuliaFormatter (default style) — not formatted; canonical content follows%0A$msg")
+            end
+            isempty(bad) || exit(1)'
 
   jet:
     name: Static analysis (JET)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: julia-actions/setup-julia@v3.0.2
@@ -57,15 +84,24 @@ jobs:
       - uses: julia-actions/cache@v3
       - name: JET.test_package
         run: |
+          set +e
           julia --project=. -e '
             using Pkg
             Pkg.add("JET")
             using JET
-            JET.test_package(path=".", julia_version="1")'
+            JET.test_package(path=".", julia_version="1")' 2>&1 | tee "$RUNNER_TEMP/jet.log"
+          code=${PIPESTATUS[0]}
+          if [ "$code" -ne 0 ]; then
+            msg="$(tail -n 80 "$RUNNER_TEMP/jet.log" | sed -e "s/%/%25/g" -e ":a" -e "N" -e "\$!ba" -e "s/\n/%0A/g")"
+            echo "::error::JET.test_package failed (exit $code) — tail of the report:%0A$msg"
+          fi
+          exit "$code"
 
   test:
     name: Test (Test + Aqua)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -81,4 +117,15 @@ jobs:
           version: ${{ matrix.julia }}
       - uses: julia-actions/cache@v3
       - name: Pkg.test()
-        run: julia --project=. -e 'using Pkg; Pkg.test()'
+        run: |
+          set +e
+          julia --project=. -e 'using Pkg; Pkg.test()' 2>&1 | tee "$RUNNER_TEMP/pkg-test.log"
+          code=${PIPESTATUS[0]}
+          if [ "$code" -ne 0 ]; then
+            # Legible failure: the tail of the test output as an annotation.
+            # Test failures otherwise live only in a log that STATE.a2ml
+            # blocker 1 records as unreachable from some sandboxes.
+            msg="$(tail -n 80 "$RUNNER_TEMP/pkg-test.log" | sed -e "s/%/%25/g" -e ":a" -e "N" -e "\$!ba" -e "s/\n/%0A/g")"
+            echo "::error::Pkg.test() failed on Julia ${{ matrix.julia }} (exit $code) — tail of the output:%0A$msg"
+          fi
+          exit "$code"

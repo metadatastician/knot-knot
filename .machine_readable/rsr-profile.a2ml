@@ -9,3 +9,15 @@ version = "1.0.0"
 spec = "rsr-criteria-v2"
 declares-against = "2.0.0-draft"
 preset = "julia-library"
+
+# Canon lockstep (dogfood-gate.yml job 6). These three pins are compared,
+# on every push, against hyperpolymath/standards@main canon.lock [canon]:
+#   version, [canon.artifacts].criteria.sha256, [canon.artifacts].gates.sha256
+# The repo previously declared no [canon] block at all, so the comparison
+# read empty strings and failed — "a pin nothing verifies is not a binding".
+# Re-pin here whenever the canon releases; the gate names the new values.
+# Source of the current values: standards canon.lock v2.1.1 (2026-09-19).
+[canon]
+version = "2.1.1"
+criteria_sha256 = "6a5aa8857bd0d0d58ef48827938ca17c251b6b854dacf59d306388d61694d82a"
+gates_sha256 = "e70efd2f53c9445e30da4baf770366f04a4a84ffd844a01426e587e565b53e6a"
