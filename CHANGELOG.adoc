@@ -8,78 +8,51 @@ https://semver.org/spec/v2.0.0.html[Semantic Versioning].
 
 === [Unreleased]
 
-==== Added
+=== Changed
+* Standard knot table 5_2..7_7 now pinned from signed KnotAtlas PD codes.
+  The Dowker--Thistlethwaite reconstruction (shared with KnotTheory.jl's
+  own table data) provably rebuilds the wrong knots beyond 5_1, so every
+  table knot is fixed by an exhaustive sign search against the knot's
+  published KnotAtlas Alexander and Jones polynomials, cross-checked
+  through the Atlas braid-word closure. `from_dt` is retained as a utility
+  with the limitation documented; the table itself no longer uses it.
+* Alexander Fox row now takes its Laurent exponent from the crossing
+  geometry (which slot the over-strand enters) instead of the crossing
+  sign. The sign-based formula silently corrupts diagrams whose crossings
+  mix over-strand directions (e.g. the KnotAtlas 6_3 diagram); the
+  geometric rule reproduces the published Alexander polynomial of every
+  knot 3_1..7_7.
 
-* `www/` site-operations bundle (issue #53): canonical `.well-known/`
-  metadata, publishable content, policy sources, error bodies,
-  security-header templates, Caddy/nginx/Apache integration examples, an
-  authoritative-only BIND 9 starting hand with record templates,
-  encrypted-DNS/privacy and TLS guidance, explicit opt-in profiles,
-  schemas, planted-control tests and operational runbooks.
-* `scripts/migrate-wellknown-to-www.sh` — conflict-safe migration of a
-  repository-root `.well-known/` into `www/.well-known/` (identical copies
-  de-duplicated, root-only content moved, divergent content quarantined —
-  see Changed).
-* `scripts/sweep-wellknown.sh` — stage 5 (#119) batch driver: classify,
-  migrate, test and commit across the estate in batches of 25, holding
-  Pages-served and non-RSR repositories for a human decision instead of
-  sweeping them blind.
-* `www/runbooks/stage5-wellknown-sweep.adoc` — how to run the sweep, and
-  how to recover from a quarantine.
-* Mint wiring for the `www/` bundle: `repo-init` now invokes
-  `scripts/migrate-wellknown-to-www.sh` when the tree being minted still
-  carries a legacy root `.well-known/`, and runs `www/tests/run-all.sh`
-  afterwards. Both are no-ops for a repository minted from the current
-  template; they exist for running `repo-init` over a tree that predates
-  #53. #106 described both as already present — neither was, which is a
-  fair part of why the estate still carries root `.well-known/` directories.
+=== Added
+* Test pins: KnotAtlas Alexander and Jones polynomials plus determinants
+  and genera for every nontrivial table knot.
 
-==== Changed
+== [0.1.0] - 2026-09-25
 
-* Canonical `.well-known/` location moved from the repository root to
-  `www/.well-known/`. Well-known enforcement, Groove checks, the root-shape
-  allowlist, the SSG bootstrap and the documentation now prefer the `www/`
-  location and accept the legacy root location with a warning during the
-  migration window.
+=== Added
+* KnotKnot.jl: knot theory across the theory--practice divide.
+* Theory layer: KnotAtlas-convention PD kernel, Jones (Kauffman bracket),
+  Alexander--Conway (Fox calculus + Bareiss), band-based signature, genus,
+  finite quandles and colouring counts, braid closure, rational tangles,
+  two-bridge classification, and skein triples with the Conway relation
+  verified per crossing.
+* Practice layer: elastic-rod knot mechanics (capstan friction,
+  bend-stress superposition, breaking force, rope efficiency),
+  writhe/linking integrals, Calugareanu--White--Fuller check.
+* Protistology layer: flagellar waveform analysis and kinetoplast
+  catenane chains with linking matrices (future Proctist.jl seed).
+* One-call `conway_suite` report with human-readable and JSON rendering.
+* Web laboratory (www/public/knot-lab/) overlaying Julia-evaluated theory
+  annotations on the tensile mechanics simulation.
+* interop/ cross-validation environment against KnotTheory.jl and Skein.jl
+  (URL-resolved, on demand).
+* Justfile golden path wired for Julia: build / test / fmt-check / lint /
+  quality / report / catalog / serve / interop.
+* Documenter build (docs/make.jl) gated by julia-docs.yml; deploy deferred
+  per docs/decisions/0004-docs-build-only.adoc.
+* Axiom.jl hand-off: training-data and proof-obligation export
+  (examples/axiom_bridge.jl).
 
-==== Changed
-
-* Divergent root/`www/` `.well-known/` content is now quarantined to
-  `www/.legacy-well-known-<YYYYMMDD>/` instead of being left in place: the
-  estate-wide sweep (#119) is unattended, so a conflict must not halt it, and
-  must not be silent either. The `www/` copy is untouched, both hashes are
-  printed, and the run exits non-zero. `--in-place` keeps the previous
-  contract (preserve both, exit 1) for hand resolution. The quarantine lives
-  under `www/` rather than at the root because the root allowlist is matched
-  literally and bidirectionally, so a dated root directory would report as
-  drift in every repository swept.
-
-==== Fixed
-
-* `dot-wellknown-enforcement.yml` now drives the migrator that #106 described
-  but never wired up: previously the workflow only printed advice to run it,
-  so nothing verified that a repository would survive the migration. It now
-  runs the migrator in `--dry-run` and turns every conflict into a
-  `::warning` annotation — a warning, not an error, for the migration window.
-* The migrator's acceptance test had encoded the in-place contract as the
-  required behaviour, contradicting #106's stated design; it now proves the
-  quarantine contract across nine scenarios, including the collision case
-  where a quarantine name is already taken.
-* `tests/e2e/template_instantiation_test.sh` fed the three container answers
-  only when `container/` existed, but `build/just/repo-init.just` asks those
-  questions when `build/container/` does. On any complete checkout — which is
-  what CI clones — the recipe asked three questions the test had no answers
-  for, `read` hit EOF, and the recipe exited 1, so the instantiation e2e was
-  red at the container prompt. The guard now matches the recipe's own path.
-  (The test also needed `ruby` for the two mint tools. Those are Rust as
-    of 2026-09-18, so it no longer stops there.)
-
-* Restore the modular `just` recipes removed by the root-layout refactor, so
-  `just repo-init`, validation, assessment, container, Groove, and proof tasks
-  are available again.
-* Require lowercase hyphenated repository slugs at initialization and verify
-  that both Guix package definitions receive the rendered slug and project URL.
-* Keep template validation aligned with authority documents moved under
-  `docs/`, and repair the cross-platform `cloak`/`uncloak` recipe syntax.
-* Restore the tracked-file language-ban gate with regression fixtures proving
-  that supported Zig passes while prohibited V-language remnants fail.
+=== Changed
+* Estate descriptiles (CLADE, STATE, ECOSYSTEM) rewritten for knot-knot.
+* README, CONTRIBUTING, decisions and planning docs instantiated.

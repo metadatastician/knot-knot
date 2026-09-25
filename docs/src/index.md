@@ -1,0 +1,36 @@
+# KnotKnot.jl
+
+Knot theory across the **theory–practice divide**: quandles, skein relations
+and Conway tangle calculus on the theory side; elastic-rod mechanics, rope
+efficiency prediction and protistological topology on the practice side.
+
+```@example
+using KnotKnot
+println(conway_suite("3_1"))
+```
+
+## What lives where
+
+| Module area | Public entry points |
+| --- | --- |
+| Diagram kernel | `pdcode`, `standard_knot`, `writhe`, `mirror`, `gauss_word`, `skein_gauss_code` |
+| Invariants | `jones_polynomial`, `alexander_polynomial`, `conway_polynomial`, `determinant`, `signature`, `genus` |
+| Quandles | `dihedral_quandle`, `alexander_quandle`, `fundamental_relations`, `coloring_count` |
+| Braids & tangles | `parse_braid_word`, `braid_closure`, `RationalTangle`, `continued_fraction`, `two_bridge_det` |
+| Skein machinery | `switch_crossing`, `smooth_crossing`, `skein_triple`, `verify_conway_skein` |
+| Mechanics | `Rod`, `curvature_profile`, `capstan_tensions`, `stress_profile`, `breaking_force`, `knot_efficiency`, `writhe_of`, `linking_of`, `calugareanu_check` |
+| Protistology | `flagellum`, `beat_summary`, `kinetoplast_chain`, `protistology_report` |
+| Bridges | `conway_suite`, `to_json_string`, `export_knot_record`, `write_visualization`, `to_knottheory_dict` |
+
+## The estate cluster
+
+KnotKnot is the bridge package of the hyperpolymath knot-theory cluster:
+
+- **KnotTheory.jl** — the classical diagram/invariant engine (PD/DT/Gauss
+  codes, Seifert matrices, polynomial invariants). KnotKnot pins its PD
+  convention against it and cross-validates in `interop/`.
+- **Skein.jl** — skein relations, bracket polynomials and knot-record
+  storage. KnotKnot emits Skein-compatible Gauss codes and record shapes.
+- **Axiom.jl** — the ML / proof framework downstream: KnotKnot exports
+  curvature→stress training data and proof obligations for it
+  (`examples/axiom_bridge.jl`).

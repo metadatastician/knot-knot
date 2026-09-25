@@ -1,0 +1,14 @@
+# knot-knot interop environment — cross-validates KnotKnot against the
+# estate theory engines KnotTheory.jl and Skein.jl, resolved by URL (none
+# of the three is in the General registry yet). This environment is run on
+# demand (`just interop`); the MUST CI path of the root package stays
+# stdlib-only by design.
+
+[deps]
+AcceleratorGate = {url = "https://github.com/hyperpolymath/AcceleratorGate.jl", rev = "main"}
+KnotKnot = {path = ".."}
+KnotTheory = {url = "https://github.com/hyperpolymath/KnotTheory.jl", rev = "main"}
+Skein = {url = "https://github.com/hyperpolymath/Skein.jl", rev = "main"}
+
+[compat]
+julia = "1.9"

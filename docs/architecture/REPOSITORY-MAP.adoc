@@ -153,7 +153,7 @@ predecessors did.
 | yes
 | pinned toolchains
 
-| `rsr-template-repo_chora.deed`
+| `knot-knot_chora.deed`
 | yes
 | the repo deed: universal AI entry point; family-7 allocation manifest + ply tree folded in (standards#837 pilot). Filename carries the repo slug (deed dispatch <stem>_chora.deed), so repo-init renames it at mint
 

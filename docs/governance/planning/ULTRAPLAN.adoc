@@ -1,0 +1,119 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath)
+= knot-knot ULTRAPLAN — knot theory across the theory–practice divide
+:toc:
+:toc-placement: preamble
+
+Minted 2026-09-25 from `hyperpolymath/rsr-template-repo`
+(julia-library archetype). This plan converts a single-file mechanics
+visualiser into the estate's *bridge package* for knot theory: full Conway
+suite on the theory side, engineering and protistology on the practice
+side, wired to the sibling engines KnotTheory.jl, Skein.jl and Axiom.jl.
+
+== Doctrine applied
+
+. *Holes before anything else* — every invariant kernel ships with
+pinned-value tests from the literature (trefoil/figure-eight/stevedore
+polynomials, signature, determinant, tricolourability) rather than
+self-referential smoke.
+. *Solutions at source* — diagram conventions are pinned against
+KnotTheory.jl (the estate's canonical engine) instead of re-invented;
+Skein.jl's record format is emitted, not forked.
+. *Wire first* — Justfile golden path (`just test && just quality`),
+CI (`julia-ci.yml` fmt / JET / test matrix incl. the 1.9 compat floor),
+docs build, web laboratory, catalog export and interop environment are all
+wired from the first commit.
+. *Fail loudly* — the docs workflow builds without a deploy key rather
+than pretending to deploy (ADR-0004); the interop environment is
+documented as URL-resolved and on-demand rather than claimed in the MUST
+path.
+
+== Phases
+
+=== Phase 0 — Mint (done)
+
+`just repo-init julia-library` run with derived UUIDs
+(repo `a6cbd9d9-…`, package `74a22736-…`), CLADE/STATE/ECOSYSTEM rewritten
+for knot-knot, root shape allow-listed, OpenSSF verify green, www suite
+green. Sandbox toolchain gaps (no rustc / julia / uuidgen locally) bridged
+with faithful shims of the two Rust mint tools; every gate the template
+runs was run.
+
+=== Phase 1 — Diagram kernel (done)
+
+KnotAtlas-convention PD codes; arc traversals; oriented Gauss words;
+Skein-format interchange codes; standard table `0_1`–`7_7` via canonical
+PD pins (3_1, 4_1, 5_1) and the DT→signed-Gauss→PD route.
+
+=== Phase 2 — Invariants (done)
+
+Jones via Kauffman bracket on PD slots; Alexander via Fox calculus +
+Bareiss over Z[t] with Conway normalisation; Conway via the
+substitution (symmetric + antisymmetric branches); determinant;
+band-based Seifert matrix → signature; genus from Seifert circles.
+
+=== Phase 3 — Quandles (done)
+
+Finite quandles with axiom verification; dihedral and Alexander quandles;
+fundamental-quandle presentation from PD crossings; colouring counts by
+backtracking. Pins: R3 counts 3/9/3 for unknot/trefoil/figure-eight.
+
+=== Phase 4 — Conway suite (done)
+
+Rational tangles as exact rationals; horizontal/vertical/rotate/mirror
+calculus; continued fractions both directions; 2-bridge classification
+(knot iff numerator odd, determinant = |p|); skein triples via switching
+and oriented smoothing with `verify_conway_skein` asserted zero on every
+crossing of 3_1 and 4_1. One-call `conway_suite` report.
+
+=== Phase 5 — Applied mechanics (done)
+
+`Rod` type with engineering units; discrete curvature; Euler–Bernoulli
+bending energy; capstan tension propagation through the curvature core;
+stress superposition; safety factor; exact breaking-force solve;
+knot-efficiency prediction; Gauss-integral writhe/linking;
+Calugareanu–White–Fuller numerical check.
+
+=== Phase 6 — Protistology (done)
+
+Flagellar waveform generators (planar/helical/tipped) with curvature-field
+beat summaries; kinetoplast catenane chains in the chainmail spacing
+window with pairwise linking matrices; one-call protistology report.
+Module kept dependency-light so it can split out as Proctist.jl.
+
+=== Phase 7 — Bridge surfaces (done)
+
+Conway-suite report with human-readable rendering; stdlib JSON serialiser;
+Skein.jl-compatible record export; KnotTheory PD-dict round-trips;
+web-laboratory payloads (`just catalog`).
+
+=== Phase 8 — Web laboratory (done)
+
+The original mechanics visualiser, restructured: fetches
+`knot_data.json` (Julia-evaluated invariants + annotations), adds the
+theory sidebar (polynomials, determinant/signature/genus, R3/R5 colouring
+counts) and a quandle-arc colouring view; falls back to an embedded
+trefoil record so it always runs standalone.
+
+=== Phase 9 — Estate integration (next)
+
+. Owner ratification: CLADE choice (`dx`/`fv`), gv-clade-index
+registration of `a6cbd9d9-…`.
+. CI job for `interop/` once the estate accepts a URL-dep job shape
+(depending on KnotTheory/Skein/AcceleratorGate by URL).
+. DOCUMENTER_KEY provisioning; `deploydocs` switch-on (ADR-0004).
+. Proctist.jl split assessment once the protistology API stabilises.
+. Axiom.jl learning loop: train the curvature→stress surrogate from
+`examples/axiom_bridge.jl` exports; witness the three mechanics
+identities.
+. Registry path: tag + register KnotKnot (and, upstream, the estate
+engines) in General when the owner is ready.
+
+== Explicit non-goals
+
+* Not a KnotPlot-style visualiser-first product: the web lab is one output
+surface of the package, not the deliverable.
+* No registry dependencies in the root package: applied science must not
+block on the registration state of the theory engines.
+* No deletion or renaming across estate boundaries: KnotTheory.jl,
+Skein.jl and Axiom.jl keep their IS; knot-knot bridges.
