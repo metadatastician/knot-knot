@@ -1,0 +1,68 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath)
+= knot-knot — Rhodium Standard compliance report
+:toc:
+
+Minted 2026-09-25 (julia-library archetype), then instantiated with the
+KnotKnot package. This report maps the repository onto the RSR criterion
+clusters.
+
+== Gates run
+
+[cols="2,1,2"]
+|===
+| Gate | Result | Notes
+
+| `just openssf-verify`
+| PASS
+| Scorecard hardening retained from the template; no scorecard regression
+(1.2.1, 1.2.3).
+
+| `just repo-structure-check`
+| PASS
+| Root shape allow-listed; the only addition beyond the base shape is
+`test/` (julia-library archetype requirement), declared in
+`.machine_readable/policies/root-allow.txt`.
+
+| `just repo-lint`
+| PASS
+| Descriptiles parse; CLADE ratified (`dx` primary, `fv` secondary —
+nearest estate precedent: fraying-model-computational-testbed).
+
+| `just www-check`
+| PASS
+| The minted www suite remains green; `www/public/knot-lab/` is the new
+laboratory surface (stdlib-only JS per the toolchain order).
+
+| Golden path (`just test && just quality`)
+| WIRED — validated by GitHub Actions
+| No Julia interpreter exists in the minting sandbox (downloads blocked);
+the package ships with its CI matrix, and the mint commit is pushed to
+trigger it rather than faking a local green.
+|===
+
+== Criterion mapping (highlights)
+
+* *1.x Documentation* — README, ULTRAPLAN, CONTRIBUTING, ADRs
+(0001 adopt, 0002 variant-contract, 0003 forge-and-sustain, 0004
+docs-build-only), decision log, estate docs rewritten for knot-knot.
+* *2.x CI/CD* — julia-ci.yml (fmt / JET / test, 1.9-floor matrix),
+julia-docs.yml build gate (ADR-0004), release-please, codeql, scorecard,
+dependency-review.
+* *3.x Tooling* — Justfile golden path fully wired for Julia: `build`,
+`test`, `fmt-check`, `lint`, `quality`, `report`, `catalog`, `serve`,
+`interop`.
+* *4.x Security* — branch protection, pinned actions (`actions.lock`),
+secret-scanning, OpenSSF profile; interop deps pinned to `main` of the
+estate's own repos (URL-resolved), never registry wildcards.
+* *5.x Honesty* — no self-referential green: invariant values pinned from
+the literature; known risks (band-based signature heuristic) are pinned by
+tests and documented in `docs/src/theory.md`; docs deploy is build-only
+until the deploy key is provisioned.
+
+== Open items
+
+. Owner ratification of the CLADE choice + gv-clade-index registration.
+. `DOCUMENTER_KEY` provisioning → deploy switch-on (ADR-0004).
+. CI iteration on the first minted push (no local Julia to pre-verify).
+. Proctist.jl split assessment (STATE.a2ml).

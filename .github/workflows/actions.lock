@@ -38,6 +38,16 @@ workflows:
         - 'actions/checkout@v7.0.1'
     '.github/workflows/hypatia-scan.yml':
         - 'hyperpolymath/standards@da2c748aad55c1a1dcba00b60fe4a35017bc6540'
+    '.github/workflows/julia-ci.yml':
+        - 'actions/checkout@v7.0.1'
+        - 'julia-actions/cache@v2'
+        - 'julia-actions/setup-julia@v3.0.2'
+    '.github/workflows/julia-docs.yml':
+        - 'actions/checkout@v7.0.1'
+        - 'julia-actions/cache@v2'
+        - 'julia-actions/julia-buildpkg@v1'
+        - 'julia-actions/julia-docdeploy@v1'
+        - 'julia-actions/setup-julia@v3.0.2'
     '.github/workflows/k9-validate.yml':
         - 'actions/checkout@v7.0.1'
         - 'hyperpolymath/k9-ecosystem@main'
@@ -165,6 +175,11 @@ dependencies:
         repo_id: 496012378
         uses:
             - 'actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f'
+    'dcarbone/install-jq-action@f0e10f46ff84f4d32178b4b76e1ef180b16f82c3':
+        ref: 'v3.1.1'
+        commit: 'sha1-f0e10f46ff84f4d32178b4b76e1ef180b16f82c3'
+        owner_id: 1392439
+        repo_id: 553592661
     'dependabot/fetch-metadata@v3.1.0':
         ref: 'v3.1.0'
         commit: 'sha1-25dd0e34f4fe68f24cc83900b1fe3fe149efef98'
@@ -260,6 +275,28 @@ dependencies:
             - 'ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc'
             - 'Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6'
             - 'webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555'
+    'julia-actions/cache@v2':
+        ref: 'v2'
+        commit: 'sha1-d10a6fd8f31b12404a54613ebad242900567f2b9'
+        owner_id: 53965732
+        repo_id: 441908600
+        uses:
+            - 'dcarbone/install-jq-action@f0e10f46ff84f4d32178b4b76e1ef180b16f82c3'
+    'julia-actions/julia-buildpkg@v1':
+        ref: 'v1'
+        commit: 'sha1-e3eb439fad4f9aba7da2667e7510e4a46ebc46e1'
+        owner_id: 53965732
+        repo_id: 210451482
+    'julia-actions/julia-docdeploy@v1':
+        ref: 'v1'
+        commit: 'sha1-e62cc8fd639797a0c2922a437d5b1b81c4a12787'
+        owner_id: 53965732
+        repo_id: 222156169
+    'julia-actions/setup-julia@v3.0.2':
+        ref: 'v3.0.2'
+        commit: 'sha1-fa02766e078afaaf09b14210362cee14137e6a32'
+        owner_id: 53965732
+        repo_id: 202020219
     'ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc':
         ref: '2d1146689b8cda280b9bc96326124645441f03bc'
         commit: 'sha1-2d1146689b8cda280b9bc96326124645441f03bc'

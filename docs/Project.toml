@@ -1,0 +1,9 @@
+# knot-knot documentation build environment (Documenter).
+# The julia-docs.yml workflow builds with this project.
+
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+KnotKnot = "74a22736-c88b-55db-9726-7f94661135a1"
+
+[compat]
+Documenter = "1"

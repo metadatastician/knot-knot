@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: CC-BY-SA-4.0
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+= ADR-0004: Docs build-only until a deploy key is provisioned
+:icons: font
+
+== Status
+
+Accepted (2026-09-25), minted state.
+
+== Context
+
+The julia-library archetype ships `julia-docs.yml` wired to
+`julia-actions/julia-docdeploy`. Deployment to `gh-pages` requires a
+`DOCUMENTER_KEY` deploy key (and `deploydocs` in `make.jl`). This repo was
+minted without that secret, and `make.jl` deliberately contains no
+`deploydocs` call.
+
+== Decision
+
+* `docs/make.jl` builds only (no `deploydocs`). The workflow therefore
+  exercises the full Documenter build on every pull request and push to
+  `main` without requiring a secret that does not exist — no silent green,
+  no permanent red.
+* `pull_request` is added to the workflow triggers so the docs build gates
+  branches, matching the test job's posture.
+* Provisioning the deploy key (and adding `deploydocs`) is recorded in
+  STATE.a2ml `[critical-next-actions]` as an owner task.
+
+== Consequences
+
+* The docs build is a real gate today; publication is deferred to the
+  owner's provisioning step.
+* The workflow's header comment records this posture so the next agent does
+  not read the absence of a deploy as drift.

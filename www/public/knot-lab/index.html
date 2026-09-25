@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>knot-knot laboratory — theory and practice of knots</title>
+<!--
+  SPDX-License-Identifier: MPL-2.0
+  knot-knot web laboratory.
+
+  Two faces, one page:
+    * MECHANICS — elastic-rod tensile simulation: capstan friction core,
+      bend-stress superposition sigma = F/A + E*d/(2R), fracture at UTS.
+    * THEORY — quandle, skein and Conway annotations evaluated by
+      KnotKnot.jl (`just catalog` writes knot_data.json next to this file).
+
+  If knot_data.json is absent the lab falls back to an embedded trefoil
+  record so the page always works standalone.
+-->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  :root {
+    --bg: #0f172a; --panel: #0b1224; --line: #1e293b;
+    --ink: #e2e8f0; --dim: #94a3b8; --acc: #818cf8;
+    --ok: #34d399; --warn: #fbbf24; --bad: #f87171; --info: #60a5fa;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg);
+    color: var(--ink); font: 13px/1.45 "Inter", system-ui, sans-serif; }
+  #canvas-container { position: absolute; inset: 0; cursor: grab; }
+  #canvas-container:active { cursor: grabbing; }
+  .ui { position: absolute; z-index: 10; pointer-events: none; }
+  .panel { pointer-events: auto; background: color-mix(in srgb, var(--panel) 88%, transparent);
+    backdrop-filter: blur(10px); border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: 0 18px 50px rgba(0,0,0,.45); }
+  .hdr { top: 16px; left: 16px; padding: 12px 16px; display: flex; gap: 12px; align-items: center; }
+  .hdr h1 { font-size: 13px; margin: 0; letter-spacing: .04em; }
+  .hdr p { margin: 2px 0 0; font-size: 11px; color: var(--dim); }
+  .hdr code { color: var(--acc); }
+  .modes { top: 16px; right: 400px; padding: 4px; display: flex; gap: 4px; }
+  .modes button { border: 0; background: transparent; color: var(--dim); font-weight: 600;
+    font-size: 11px; padding: 7px 12px; border-radius: 9px; cursor: pointer; }
+  .modes button.on { background: #4f46e5; color: #fff; }
+  .sidebar { top: 0; right: 0; width: 384px; height: 100%; border-radius: 0;
+    border-left: 1px solid var(--line); overflow-y: auto; pointer-events: auto; }
+  .sidebar::-webkit-scrollbar { width: 6px; } .sidebar::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  .sidebar header { padding: 18px 20px 12px; border-bottom: 1px solid var(--line); }
+  .sidebar header h2 { margin: 0; font-size: 15px; }
+  .sidebar header p { margin: 4px 0 0; font-size: 11px; color: var(--dim); }
+  .sect { padding: 14px 20px; border-bottom: 1px solid var(--line); }
+  .sect h3 { margin: 0 0 10px; font-size: 10px; text-transform: uppercase;
+    letter-spacing: .12em; color: var(--dim); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .chip { border: 1px solid var(--line); border-radius: 9px; padding: 8px; font-size: 11px;
+    color: var(--dim); background: rgba(2,6,23,.4); cursor: pointer; text-align: center; }
+  .chip.on { border-color: var(--acc); color: #fff; background: rgba(79,70,229,.25); font-weight: 700; }
+  .mat { width: 100%; text-align: left; border: 1px solid var(--line); border-radius: 10px;
+    background: rgba(2,6,23,.4); color: var(--dim); padding: 9px 10px; margin-bottom: 6px;
+    cursor: pointer; font-size: 11px; }
+  .mat.on { border-color: var(--info); background: rgba(30,64,175,.18); color: var(--ink); }
+  .kv { display: flex; justify-content: space-between; font-size: 11px; margin: 5px 0; }
+  .kv b { font-family: ui-monospace, monospace; color: var(--warn); font-weight: 600; }
+  .kv.blue b { color: var(--info); } .kv.red b { color: var(--bad); }
+  .kv.green b { color: var(--ok); }
+  input[type=range] { width: 100%; accent-color: var(--acc); }
+  .anno { position: absolute; transform: translate(-50%,-50%); opacity: 0;
+    transition: opacity .2s; pointer-events: none; max-width: 230px; }
+  .anno .card { background: rgba(2,6,23,.92); border: 1px solid var(--line);
+    border-radius: 10px; padding: 9px 11px; font-size: 11px; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
+  .anno h4 { margin: 0 0 4px; font-size: 11px; display: flex; align-items: center; gap: 6px; }
+  .anno .mono { font-family: ui-monospace, monospace; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+  #svg-lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9; }
+  .footer { bottom: 18px; left: calc(50% - 192px); transform: translateX(-50%); width: min(680px, 60vw); padding: 14px 18px; }
+  .footer .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .footer .big { font-size: 16px; font-weight: 800; }
+  .footer .big span { font-family: ui-monospace, monospace; color: var(--acc); }
+  #yield { font-family: ui-monospace, monospace; font-size: 18px; font-weight: 800; color: var(--ok); }
+  #yield.danger { color: var(--bad); animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: .45; } }
+  .theory { font-family: ui-monospace, monospace; font-size: 11px; }
+  .theory .poly { color: var(--ink); background: rgba(2,6,23,.55); border: 1px solid var(--line);
+    border-radius: 7px; padding: 5px 8px; margin: 3px 0; word-break: break-all; }
+  .badge { display: inline-block; border: 1px solid var(--line); border-radius: 99px;
+    padding: 2px 8px; font-size: 10px; color: var(--dim); margin: 2px 3px 2px 0; }
+  .note { font-size: 10px; color: var(--dim); margin-top: 6px; }
+  #snap-anno .card { background: #dc2626; border-color: #fca5a5; color: #fff; font-weight: 800; }
+</style>
+</head>
+<body>
+<div id="canvas-container"></div>
+
+<div class="ui panel hdr">
+  <div style="width:34px;height:34px;border-radius:10px;background:rgba(79,70,229,.2);
+    border:1px solid rgba(99,102,241,.4);display:flex;align-items:center;justify-content:center;">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+  </div>
+  <div>
+    <h1>knot-knot laboratory</h1>
+    <p><code>&sigma; = F/A + E&middot;d/(2R)</code> &nbsp;&middot;&nbsp; theory by KnotKnot.jl &nbsp;&middot;&nbsp;
+      <span id="catalog-state">catalog: loading&hellip;</span></p>
+  </div>
+</div>
+
+<div class="ui panel modes">
+  <button id="m-total" class="on">Total stress</button>
+  <button id="m-bending">Pure bending</button>
+  <button id="m-axial">Pure axial</button>
+  <button id="m-quandle">Quandle arcs</button>
+</div>
+
+<svg id="svg-lines">
+  <line id="ln-straight" stroke="#34d399" stroke-width="2" stroke-dasharray="4" opacity="0"/>
+  <line id="ln-entrance" stroke="#f87171" stroke-width="2" stroke-dasharray="4" opacity="0"/>
+  <line id="ln-core" stroke="#60a5fa" stroke-width="2" stroke-dasharray="4" opacity="0"/>
+  <line id="ln-snap" stroke="#f87171" stroke-width="3" opacity="0"/>
+</svg>
+
+<div id="anno-straight" class="anno"><div class="card" style="border-color:rgba(52,211,153,.5)">
+  <h4 style="color:var(--ok)"><span class="dot" style="background:var(--ok)"></span>Straight edge &middot; skein L&#8320;</h4>
+  <div>R &rarr; &infin; (flat): only axial stress survives.</div>
+  <div class="mono" id="lbl-axial" style="color:var(--ok)">&sigma; = F/A = 0 MPa</div>
+</div></div>
+
+<div id="anno-entrance" class="anno"><div class="card" style="border-color:#ef4444">
+  <h4 style="color:var(--bad)">&#9888; Nipping turn &middot; peak bend</h4>
+  <div>Min radius R = <span class="mono" id="lbl-rmin" style="color:var(--warn)">0 mm</span></div>
+  <div class="mono" id="lbl-bend" style="color:var(--warn)">&sigma;_bending = 0 MPa</div>
+  <div class="mono" id="lbl-total" style="color:var(--bad);font-weight:700">&sigma;_total = 0 MPa</div>
+  <div class="note">Skein: this crossing is an L&#8314;/L&#8315; site; smoothing it gives L&#8320;.</div>
+</div></div>
+
+<div id="anno-core" class="anno"><div class="card" style="border-color:rgba(96,165,250,.5)">
+  <h4 style="color:var(--info)">Capstan friction core &middot; Conway core</h4>
+  <div class="mono" style="color:var(--info)">F(x) = F&#8320;&middot;e^(&minus;&mu;&theta;)</div>
+  <div class="note">Quandle generators live on the arcs; colouring counts are
+  homomorphism counts into R&#8345;.</div>
+</div></div>
+
+<div id="snap-anno" class="anno"><div class="card">&#9888; FRACTURE (&sigma; &ge; UTS)</div></div>
+
+<div class="ui panel footer">
+  <div class="row">
+    <div>
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--dim)">Tensile loading simulation</div>
+      <div class="big">Applied force (F): <span id="lbl-force">180 N</span></div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:10px;color:var(--dim)">Yield ratio (&sigma;/UTS)</div>
+      <div id="yield">0%</div>
+    </div>
+  </div>
+  <input type="range" min="10" max="600" value="180" id="force-slider">
+  <div class="row" style="margin:8px 0 0;border-top:1px solid var(--line);padding-top:8px">
+    <div class="kv" style="margin:0"><span class="dim">Area</span>&nbsp;<b id="lbl-area" style="color:#fff">0 mm&sup2;</b>
+      &nbsp;&middot;&nbsp; <span class="dim">UTS</span>&nbsp;<b id="lbl-uts" style="color:#fff">0 MPa</b></div>
+    <button id="btn-reset" style="display:none;border:0;background:#4f46e5;color:#fff;border-radius:8px;
+      padding:6px 12px;font-weight:700;cursor:pointer">Reset</button>
+  </div>
+</div>
+
+<aside class="ui panel sidebar">
+  <header>
+    <h2>Engineering &amp; theory settings</h2>
+    <p>Real-time differential geometry + solid mechanics, annotated by the Conway suite.</p>
+  </header>
+
+  <div class="sect">
+    <h3>Knot topology</h3>
+    <div class="grid2" id="topo-box"></div>
+  </div>
+
+  <div class="sect">
+    <h3>Conway suite <span id="suite-knot" class="badge">3_1</span></h3>
+    <div class="theory">
+      <div class="kv blue"><span>Jones V(t)</span></div><div class="poly" id="t-jones">&mdash;</div>
+      <div class="kv blue"><span>Alexander &Delta;(t)</span></div><div class="poly" id="t-alex">&mdash;</div>
+      <div class="kv blue"><span>Conway &nabla;(z)</span></div><div class="poly" id="t-conway">&mdash;</div>
+      <div class="kv"><span>det / signature / genus</span><b id="t-dsg">&mdash;</b></div>
+      <div class="kv green"><span>R3 colourings (quandle)</span><b id="t-r3">&mdash;</b></div>
+      <div class="kv green"><span>R5 colourings (quandle)</span><b id="t-r5">&mdash;</b></div>
+      <div id="t-desc" class="note"></div>
+    </div>
+  </div>
+
+  <div class="sect">
+    <h3>Material presets</h3>
+    <div id="mat-box"></div>
+  </div>
+
+  <div class="sect">
+    <h3>Physical parameters</h3>
+    <div class="kv"><span>Young's modulus (E)</span><b id="lbl-e">3.5 GPa</b></div>
+    <input type="range" min="1" max="900" id="slider-e">
+    <div class="kv"><span>Strand diameter (d)</span><b id="lbl-d" style="color:var(--acc)">2.0 mm</b></div>
+    <input type="range" min="0.2" max="5.0" step="0.1" id="slider-d">
+    <div class="kv red"><span>Ultimate tensile limit (UTS)</span><b id="lbl-uts2">850 MPa</b></div>
+    <input type="range" min="100" max="4000" step="50" id="slider-uts">
+  </div>
+
+  <div class="sect">
+    <h3>Failure mechanism</h3>
+    <p style="font-size:11px;color:var(--dim);margin:0" id="lbl-desc"></p>
+  </div>
+</aside>
+
+<script>
+"use strict";
+// ============================================================= state =====
+const MATERIALS = [
+  { id:"textiles", name:"Textiles (Nylon 6,6)", E:3.5, uts:850, d:2.0, friction:0.35,
+    swatch:"#2563eb",
+    desc:"High-ductility polymer. Yields locally before catastrophic shear failure at the nipping turn." },
+  { id:"metals", name:"Metals (High-Carbon Steel)", E:205, uts:1770, d:1.2, friction:0.18,
+    swatch:"#475569",
+    desc:"High modulus E drives massive bending stress E*d/(2R). Notch sensitivity causes rapid plastic collapse." },
+  { id:"proteins", name:"Proteins (Spider Silk)", E:10, uts:1100, d:0.8, friction:0.25,
+    swatch:"#059669",
+    desc:"Non-linear biopolymer. Severe bending destroys hydrogen-bond networks on the outer radius." },
+  { id:"cnt", name:"Carbon Nanotubes (Yarn)", E:800, uts:3500, d:0.4, friction:0.10,
+    swatch:"#18181b",
+    desc:"Ultra-high axial strength, transverse buckling. Sharp radii trigger sp3 defect transformation." }
+];
+
+const TOPOLOGIES = [
+  { id:"overhand", name:"Overhand (3\u2081)" },
+  { id:"figure8", name:"Figure-Eight (4\u2081)" },
+  { id:"square", name:"Square Knot" },
+  { id:"knot5", name:"Double Overhand (5\u2081)" },
+  { id:"knot6", name:"Stevedore (6\u2081)" },
+  { id:"knot7", name:"Triple Overhand (7\u2081)" }
+];
+
+// Embedded fallback record (exact KnotKnot.jl evaluation of 3_1) so the
+// page works before `just catalog` has been run.
+const FALLBACK_CATALOG = {
+  schema: "knotknot/catalog-v0",
+  knots: [{
+    name: "3_1",
+    description: "Right-hand trefoil, the (2,3)-torus knot",
+    pd: [[1,4,2,5,1],[3,6,4,1,1],[5,2,6,3,1]],
+    record: {
+      crossing_number: 3, writhe: 3,
+      jones_polynomial: "-4:-1,-3:1,-1:1",
+      alexander_polynomial: "-1:1,0:-1,1:1",
+      conway_polynomial: "0:1,2:1",
+      determinant: 3, signature: -2, genus: 1, seifert_circle_count: 2,
+      colorings: { R3: 9, R5: 5 }
+    }
+  }],
+  annotations: {
+    quandle: "Arcs are fundamental-quandle generators; colouring counts are homomorphism counts.",
+    skein: "Crossings carry the L+/L-/L0 skein triple; Conway's relation is verified per crossing.",
+    conway: "Rational knots are classified by their Conway fraction p/q; determinant = |p|."
+  }
+};
+
+const state = {
+  force: 180, mat: MATERIALS[0], E: MATERIALS[0].E, UTS: MATERIALS[0].uts,
+  d: MATERIALS[0].d, topology: "overhand", viewMode: "total",
+  catalog: null, currentKnot: "3_1"
+};
+
+function fmtPoly(serialised, v) {
+  // serialised "e:c,e:c" -> human string in variable v
+  if (!serialised) return "\u2014";
+  const parts = serialised.split(",").map(p => p.split(":").map(Number))
+    .sort((a, b) => b[0] - a[0]);
+  const terms = parts.map(([e, c]) => {
+    if (c === 0) return "";
+    const mag = Math.abs(c);
+    let body;
+    if (e === 0) body = `${mag}`;
+    else if (mag === 1) body = e === 1 ? v : `${v}^${e}`;
+    else body = e === 1 ? `${mag}${v}` : `${mag}${v}^${e}`;
+    return c < 0 ? `-${body}` : body;
+  }).filter(Boolean);
+  return terms.length ? terms.join(" + ") : "0";
+}
+
+function recordFor(name) {
+  const cat = state.catalog || FALLBACK_CATALOG;
+  const byName = { "overhand": "3_1", "figure8": "4_1", "square": "4_1",
+                   "knot5": "5_1", "knot6": "6_1", "knot7": "7_1" };
+  const want = name ? name : byName[state.topology] || "3_1";
+  return (cat.knots || []).find(k => k.name === want) || cat.knots[0] || FALLBACK_CATALOG.knots[0];
+}
+
+function refreshTheoryPanel() {
+  const k = recordFor();
+  const r = k.record;
+  state.currentKnot = k.name;
+  document.getElementById("suite-knot").textContent = k.name;
+  document.getElementById("t-jones").textContent = fmtPoly(r.jones_polynomial, "t");
+  document.getElementById("t-alex").textContent = fmtPoly(r.alexander_polynomial, "t");
+  document.getElementById("t-conway").textContent = fmtPoly(r.conway_polynomial, "z");
+  document.getElementById("t-dsg").textContent =
+    `${r.determinant} / ${r.signature} / ${r.genus}`;
+  document.getElementById("t-r3").textContent = r.colorings ? r.colorings.R3 : "\u2014";
+  document.getElementById("t-r5").textContent = r.colorings ? r.colorings.R5 : "\u2014";
+  document.getElementById("t-desc").textContent = k.description || "";
+}
+
+async function loadCatalog() {
+  try {
+    const res = await fetch("knot_data.json", { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    state.catalog = await res.json();
+    document.getElementById("catalog-state").textContent =
+      `catalog: knotknot/catalog-v0 (${state.catalog.knots.length} knots)`;
+  } catch (err) {
+    state.catalog = FALLBACK_CATALOG;
+    document.getElementById("catalog-state").textContent =
+      "catalog: embedded fallback (run `just catalog`)";
+  }
+  refreshTheoryPanel();
+}
+
+// ============================================================ three.js ====
+const container = document.getElementById("canvas-container");
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(-2, 0, 20);
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+container.appendChild(renderer.domElement);
+scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+dirLight.position.set(10, 20, 15);
+scene.add(dirLight);
+const knotGroup = new THREE.Group();
+scene.add(knotGroup);
+
+let isDragging = false, prevX = 0, prevY = 0;
+renderer.domElement.addEventListener("mousedown", e => { isDragging = true; prevX = e.clientX; prevY = e.clientY; });
+window.addEventListener("mouseup", () => isDragging = false);
+window.addEventListener("mousemove", e => {
+  if (!isDragging) return;
+  knotGroup.rotation.y += (e.clientX - prevX) * 0.01;
+  knotGroup.rotation.x += (e.clientY - prevY) * 0.01;
+  prevX = e.clientX; prevY = e.clientY;
+});
+renderer.domElement.addEventListener("wheel", e => {
+  camera.position.z = Math.max(8, Math.min(40, camera.position.z + e.deltaY * 0.02));
+});
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ================================================ knot curve generators ===
+function getMultipleOverhand(turns, stretch, tight) {
+  const W = 1.0 + turns * 0.8, R = 2.2 - tight;
+  const pts = [ new THREE.Vector3(-14 - stretch, 0, 0),
+                new THREE.Vector3(-W - 2 - stretch * 0.2, 0, 0),
+                new THREE.Vector3(-W, R, 1.2), new THREE.Vector3(W, R, 1.2),
+                new THREE.Vector3(W + 1.5, 0, 0) ];
+  const steps = turns * 4;
+  for (let i = 0; i <= steps; i++) {
+    const p = i / steps, x = (W + 1) - p * (2 * W + 2);
+    const angle = p * turns * Math.PI * 2, r = R * 0.6;
+    pts.push(new THREE.Vector3(x, Math.cos(angle) * r - r * 0.5, Math.sin(angle) * r));
+  }
+  pts.push(new THREE.Vector3(-W - 1.5, -R, -1), new THREE.Vector3(0, -R * 0.5, -0.5),
+           new THREE.Vector3(W + 2 + stretch * 0.2, 0, 0), new THREE.Vector3(14 + stretch, 0, 0));
+  return pts;
+}
+
+function getTwistKnot(halfTwists, stretch, tight) {
+  const W = 1.0 + halfTwists * 0.6, R = 2.0 - tight;
+  const pts = [ new THREE.Vector3(-14 - stretch, 0, 0),
+                new THREE.Vector3(-W - 2 - stretch * 0.2, 0, 0),
+                new THREE.Vector3(-W, -R * 0.5, 0), new THREE.Vector3(W, -R * 0.5, 0),
+                new THREE.Vector3(W + 1.5, R, 0.5), new THREE.Vector3(-W - 1.5, R, 0.5) ];
+  const steps = halfTwists * 4;
+  for (let i = 0; i <= steps; i++) {
+    const p = i / steps, x = -W - 1 + p * (2 * W + 2);
+    const angle = p * halfTwists * Math.PI, r = R * 0.6;
+    pts.push(new THREE.Vector3(x, -R * 0.5 + Math.cos(angle) * r, Math.sin(angle) * r));
+  }
+  pts.push(new THREE.Vector3(W + 1.5, R * 0.5, -1), new THREE.Vector3(0, R * 1.5, -1),
+           new THREE.Vector3(W + 3 + stretch * 0.2, 0, 0), new THREE.Vector3(14 + stretch, 0, 0));
+  return pts;
+}
+
+function getBasePoints() {
+  const stretch = (state.force / 500) * 2.0;
+  const tight = (state.force / 500) * 0.5;
+  if (state.topology === "knot5") return getMultipleOverhand(2, stretch, tight);
+  if (state.topology === "knot6") return getTwistKnot(4, stretch, tight);
+  if (state.topology === "knot7") return getMultipleOverhand(3, stretch, tight);
+  if (state.topology === "figure8") {
+    return [ new THREE.Vector3(-14 - stretch, 0, 0), new THREE.Vector3(-6 - stretch * 0.3, 0, 0),
+      new THREE.Vector3(-3, 2.5 - tight, 1.2), new THREE.Vector3(0, 3.2 - tight, -0.5),
+      new THREE.Vector3(3, 1.0, -1.5), new THREE.Vector3(1, -2.5 + tight, 0.5),
+      new THREE.Vector3(-2, -2.0, 1.5), new THREE.Vector3(-1, 1.5, 0.2),
+      new THREE.Vector3(2, 2.8, -1.0), new THREE.Vector3(6 + stretch * 0.3, 0, 0),
+      new THREE.Vector3(14 + stretch, 0, 0) ];
+  }
+  if (state.topology === "square") {
+    return [ new THREE.Vector3(-14 - stretch, 0, 0), new THREE.Vector3(-5, 0.5, 0),
+      new THREE.Vector3(-2, 2.2 - tight, 1.0), new THREE.Vector3(2, 2.0 - tight, 1.0),
+      new THREE.Vector3(3.5, -0.5, -0.5), new THREE.Vector3(0, -2.2 + tight, -1.2),
+      new THREE.Vector3(-3.5, -0.5, -0.5), new THREE.Vector3(-2, 2.0, 1.0),
+      new THREE.Vector3(5, 0.5, 0), new THREE.Vector3(14 + stretch, 0, 0) ];
+  }
+  return [ new THREE.Vector3(-14 - stretch, 0, 0), new THREE.Vector3(-4, 0, 0),
+    new THREE.Vector3(-1.8, 2.2 - tight, 1.1 - tight), new THREE.Vector3(2.0, 2.6 - tight, 0.9),
+    new THREE.Vector3(3.6 - tight, 0, -1.1), new THREE.Vector3(1.2, -2.6 + tight, -1.1 + tight),
+    new THREE.Vector3(-1.6 + tight, -1.1, 0.1), new THREE.Vector3(-0.9, 1.1, 1.3),
+    new THREE.Vector3(1.1, 1.6, 1.4), new THREE.Vector3(3.6, 0, 0),
+    new THREE.Vector3(14 + stretch, 0, 0) ];
+}
+
+// ============================================================== physics ====
+let currentMetrics = [], simulationSummary = {};
+
+function calculatePhysics() {
+  const points = getBasePoints();
+  const curve = new THREE.CatmullRomCurve3(points);
+  const samples = 200;
+  const spacedPoints = curve.getSpacedPoints(samples);
+  const area = Math.PI * Math.pow(state.d / 2, 2);
+  let cumulativeTheta = 0;
+  currentMetrics = [];
+  let maxTotal = 0, maxBending = 0, maxAxial = 0, minRadius = Infinity, breakIdx = -1;
+
+  for (let i = 0; i <= samples; i++) {
+    const t = i / samples, p = spacedPoints[i];
+    let v = new THREE.Vector3(), a = new THREE.Vector3();
+    if (i > 0 && i < samples) {
+      v.subVectors(spacedPoints[i + 1], spacedPoints[i - 1]).divideScalar(2);
+      a.copy(spacedPoints[i + 1]).sub(spacedPoints[i]).sub(spacedPoints[i]).add(spacedPoints[i - 1]);
+    } else { v.set(1, 0, 0); a.set(0, 0, 0); }
+    const cross = new THREE.Vector3().crossVectors(v, a);
+    const vLen = v.length();
+    let kappa = vLen > 0.0001 ? cross.length() / Math.pow(vLen, 3) : 0;
+    kappa *= 0.5; // 3D units -> physical mm approximation
+    const R = kappa > 0.01 ? 1 / kappa : Infinity;
+
+    const inCore = t > 0.35 && t < 0.65;
+    if (inCore) cumulativeTheta += 0.05;
+    const localForce = inCore ? state.force * Math.exp(-state.mat.friction * cumulativeTheta) : state.force;
+
+    const sigmaAxial = localForce / area;
+    const sigmaBending = R < Infinity ? (state.E * 1000 * state.d) / (2 * R * 10) : 0;
+    const sigmaTotal = sigmaAxial + sigmaBending;
+
+    if (sigmaTotal > maxTotal) { maxTotal = sigmaTotal; breakIdx = i; }
+    if (sigmaBending > maxBending) maxBending = sigmaBending;
+    if (sigmaAxial > maxAxial) maxAxial = sigmaAxial;
+    if (R < minRadius && R > 0) minRadius = R;
+    currentMetrics.push({ point: p, t, R, sigmaAxial, sigmaBending, sigmaTotal, inCore });
+  }
+  simulationSummary = { area, maxTotal, maxBending, maxAxial, minRadius,
+    isBroken: maxTotal >= state.UTS, breakIdx };
+}
+
+function getHeatmapColor(ratio) {
+  const clamped = Math.min(Math.max(ratio, 0), 1.2) / 1.2;
+  const c = new THREE.Color();
+  if (clamped < 0.25) c.lerpColors(new THREE.Color(0x0066ff), new THREE.Color(0x00e676), clamped / 0.25);
+  else if (clamped < 0.6) c.lerpColors(new THREE.Color(0x00e676), new THREE.Color(0xffd600), (clamped - 0.25) / 0.35);
+  else if (clamped < 0.9) c.lerpColors(new THREE.Color(0xffd600), new THREE.Color(0xff3d00), (clamped - 0.6) / 0.3);
+  else c.lerpColors(new THREE.Color(0xff3d00), new THREE.Color(0xaa00ff), (clamped - 0.9) / 0.3);
+  return c;
+}
+
+function arcColor(index, total) {
+  // Quandle-arc mode: colour by Wirtinger arc bands of the loaded PD code.
+  const k = recordFor();
+  const nArcs = k.record.crossing_number + 1;
+  const band = Math.floor((index / total) * nArcs) % nArcs;
+  const hue = (band * 360 / nArcs) % 360;
+  return new THREE.Color(`hsl(${hue}, 80%, 60%)`);
+}
+
+function createSegment(pointsArr, startIndex) {
+  if (pointsArr.length < 2) return;
+  const curve = new THREE.CatmullRomCurve3(pointsArr);
+  const rSegments = 20, tSegments = Math.max(30, pointsArr.length * 2);
+  const geo = new THREE.TubeGeometry(curve, tSegments, state.d * 0.15, rSegments, false);
+  const colors = [];
+  for (let i = 0; i < geo.attributes.position.count; i++) {
+    const segIdx = Math.floor(i / (rSegments + 1));
+    const localT = segIdx / tSegments;
+    let c;
+    if (state.viewMode === "quandle") {
+      c = arcColor(startIndex + Math.floor(localT * pointsArr.length), currentMetrics.length);
+    } else {
+      const metricIdx = Math.min(currentMetrics.length - 1,
+        startIndex + Math.floor(localT * pointsArr.length));
+      const m = currentMetrics[metricIdx];
+      let val = m.sigmaTotal;
+      if (state.viewMode === "bending") val = m.sigmaBending;
+      if (state.viewMode === "axial") val = m.sigmaAxial;
+      c = getHeatmapColor(val / state.UTS);
+    }
+    colors.push(c.r, c.g, c.b);
+  }
+  geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  const mat = new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: 0.3,
+    metalness: state.mat.id === "metals" ? 0.7 : 0.1
+  });
+  knotGroup.add(new THREE.Mesh(geo, mat));
+}
+
+function renderKnot() {
+  while (knotGroup.children.length > 0) knotGroup.remove(knotGroup.children[0]);
+  if (simulationSummary.isBroken) {
+    const b = Math.max(5, Math.min(currentMetrics.length - 5, simulationSummary.breakIdx));
+    const leftPts = currentMetrics.slice(0, b).map(m => new THREE.Vector3(m.point.x - 0.8, m.point.y + 0.3, m.point.z));
+    const rightPts = currentMetrics.slice(b + 5).map(m => new THREE.Vector3(m.point.x + 0.8, m.point.y - 0.3, m.point.z));
+    createSegment(leftPts, 0);
+    createSegment(rightPts, b + 5);
+    const sphere = new THREE.Mesh(
+      new THREE.SphereGeometry(state.d * 0.25, 16, 16),
+      new THREE.MeshBasicMaterial({ color: 0xff0055, wireframe: true }));
+    sphere.position.copy(currentMetrics[b].point);
+    knotGroup.add(sphere);
+  } else {
+    createSegment(currentMetrics.map(m => m.point), 0);
+  }
+}
+
+// ================================================================== UI =====
+function updateUI() {
+  document.getElementById("lbl-force").textContent = `${state.force} N`;
+  document.getElementById("lbl-area").innerHTML = `${simulationSummary.area.toFixed(2)} mm&sup2;`;
+  document.getElementById("lbl-uts").textContent = `${state.UTS} MPa`;
+  const ratio = (simulationSummary.maxTotal / state.UTS) * 100;
+  const yieldEl = document.getElementById("yield");
+  yieldEl.textContent = `${ratio.toFixed(1)}%`;
+  yieldEl.className = ratio >= 100 ? "danger" : "";
+  document.getElementById("btn-reset").style.display = simulationSummary.isBroken ? "inline-block" : "none";
+  document.getElementById("lbl-e").textContent = `${state.E} GPa`;
+  document.getElementById("lbl-d").textContent = `${state.d.toFixed(1)} mm`;
+  document.getElementById("lbl-uts2").textContent = `${state.UTS} MPa`;
+  document.getElementById("slider-e").value = state.E;
+  document.getElementById("slider-d").value = state.d;
+  document.getElementById("slider-uts").value = state.UTS;
+  document.getElementById("lbl-desc").textContent = state.mat.desc;
+  document.getElementById("lbl-axial").textContent =
+    `\u03C3 = ${(state.force / simulationSummary.area).toFixed(1)} MPa`;
+  document.getElementById("lbl-rmin").textContent =
+    `${simulationSummary.minRadius === Infinity ? "\u221E" : simulationSummary.minRadius.toFixed(2)} mm`;
+  document.getElementById("lbl-bend").textContent = `\u03C3_bending = ${simulationSummary.maxBending.toFixed(1)} MPa`;
+  document.getElementById("lbl-total").textContent = `\u03C3_total = ${simulationSummary.maxTotal.toFixed(1)} MPa`;
+
+  ["total", "bending", "axial", "quandle"].forEach(mode => {
+    document.getElementById("m-" + mode).className = state.viewMode === mode ? "on" : "";
+  });
+
+  document.getElementById("topo-box").innerHTML = TOPOLOGIES.map(t =>
+    `<div class="chip ${state.topology === t.id ? "on" : ""}" onclick="setTopology('${t.id}')">${t.name}</div>`).join("");
+  document.getElementById("mat-box").innerHTML = MATERIALS.map(m =>
+    `<button class="mat ${state.mat.id === m.id ? "on" : ""}" onclick="setMaterial('${m.id}')">
+      <div style="display:flex;gap:9px;align-items:center">
+        <span style="width:22px;height:22px;border-radius:6px;background:${m.swatch};
+          border:1px solid var(--line)"></span>
+        <div><div style="font-weight:700;color:var(--ink)">${m.name}</div>
+        <div>E = ${m.E} GPa &middot; UTS = ${m.uts} MPa</div></div>
+      </div></button>`).join("");
+}
+
+function projectLabel(elId, point3D, visible, ox, oy) {
+  const el = document.getElementById(elId);
+  const line = document.getElementById("ln-" + elId.replace("anno-", ""));
+  if (!visible || !point3D) { el.style.opacity = 0; if (line) line.setAttribute("opacity", 0); return; }
+  const vec = point3D.clone();
+  vec.applyMatrix4(knotGroup.matrixWorld);
+  vec.project(camera);
+  if (vec.z > 1) { el.style.opacity = 0; if (line) line.setAttribute("opacity", 0); return; }
+  const x = (vec.x * 0.5 + 0.5) * window.innerWidth;
+  const y = (vec.y * -0.5 + 0.5) * window.innerHeight;
+  el.style.left = `${x + ox}px`; el.style.top = `${y + oy}px`; el.style.opacity = 1;
+  if (line) {
+    line.setAttribute("x1", x); line.setAttribute("y1", y);
+    line.setAttribute("x2", x + ox * 0.75); line.setAttribute("y2", y + oy * 0.75);
+    line.setAttribute("opacity", elId === "snap-anno" ? "1" : "0.6");
+  }
+}
+
+function updateLabels() {
+  if (currentMetrics.length === 0) return;
+  const b = simulationSummary.isBroken;
+  const breakPt = currentMetrics[simulationSummary.breakIdx] && currentMetrics[simulationSummary.breakIdx].point;
+  const entryPt = currentMetrics[Math.floor(currentMetrics.length * 0.15)].point;
+  const corePt = currentMetrics[Math.floor(currentMetrics.length * 0.5)].point;
+  const straightPt = currentMetrics[5].point;
+  projectLabel("anno-straight", straightPt, !b, -170, -140);
+  projectLabel("anno-entrance", b ? breakPt : entryPt, !b, 180, -150);
+  projectLabel("anno-core", corePt, !b, 90, 160);
+  projectLabel("snap-anno", breakPt, b, 0, -180);
+}
+
+// ============================================================== events =====
+document.getElementById("force-slider").addEventListener("input", e => {
+  state.force = parseInt(e.target.value, 10); runSimulation();
+});
+document.getElementById("slider-e").addEventListener("input", e => {
+  state.E = parseFloat(e.target.value); runSimulation();
+});
+document.getElementById("slider-d").addEventListener("input", e => {
+  state.d = parseFloat(e.target.value); runSimulation();
+});
+document.getElementById("slider-uts").addEventListener("input", e => {
+  state.UTS = parseFloat(e.target.value); runSimulation();
+});
+["total", "bending", "axial", "quandle"].forEach(mode => {
+  document.getElementById("m-" + mode).addEventListener("click", () => {
+    state.viewMode = mode; renderKnot(); updateUI();
+  });
+});
+document.getElementById("btn-reset").addEventListener("click", () => {
+  state.force = 100; document.getElementById("force-slider").value = 100; runSimulation();
+});
+window.setMaterial = id => {
+  const m = MATERIALS.find(x => x.id === id);
+  state.mat = m; state.E = m.E; state.UTS = m.uts; state.d = m.d; runSimulation();
+};
+window.setTopology = id => { state.topology = id; refreshTheoryPanel(); runSimulation(); };
+
+function runSimulation() { calculatePhysics(); renderKnot(); updateUI(); }
+
+function animate() {
+  requestAnimationFrame(animate);
+  if (!isDragging) knotGroup.rotation.y += 0.002;
+  updateLabels();
+  renderer.render(scene, camera);
+}
+
+loadCatalog();
+runSimulation();
+animate();
+</script>
+</body>
+</html>
