@@ -13,11 +13,11 @@ makedocs(
     sitename = "KnotKnot.jl",
     modules = [KnotKnot],
     pages = [
-        "Home" => "index.md",
-        "Theory" => "theory.md",
-        "Conway suite" => "conway.md",
-        "Mechanics" => "mechanics.md",
-        "Protistology" => "protistology.md",
+        "Home" => "index.adoc",
+        "Theory" => "theory.adoc",
+        "Conway suite" => "conway.adoc",
+        "Mechanics" => "mechanics.adoc",
+        "Protistology" => "protistology.adoc",
     ],
     warnonly = true,
 )
