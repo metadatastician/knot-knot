@@ -216,6 +216,40 @@ function knot_efficiency(rod::Rod)::Float64
 end
 
 """
+    _closed_segments(points) -> Vector{Float64}
+
+Chord lengths of the closed polyline through `points`, **including** the
+closing edge from the last sample back to the first.
+
+`segment_lengths` deliberately stops at `n - 1` because a `Rod` centreline
+is an open arc, but the Gauss linking and writhe integrals below run over
+*closed* curves: dropping that last edge shortens the curve by one step
+and skews the quadrature.
+"""
+function _closed_segments(points::Vector{NTuple{3,Float64}})::Vector{Float64}
+    n = length(points)
+    [_norm(_sub(points[mod1(i + 1, n)], points[i])) for i in 1:n]
+end
+
+"""
+    _unit_tangent(points, i) -> NTuple{3,Float64}
+
+Unit tangent at sample `i` of a closed polyline, from centred differences
+(`p[i+1] - p[i-1]`); the zero vector for a degenerate sample.
+
+The Gauss integrand is built from *unit* tangents. The raw centred chord
+has length about `2ds`, so handing it in unnormalised leaves the whole
+integral short by roughly `4 ds^2` — which is exactly why `writhe_of` and
+`linking_of` used to converge to `0` instead of to their true values.
+"""
+function _unit_tangent(points::Vector{NTuple{3,Float64}}, i::Int)::NTuple{3,Float64}
+    n = length(points)
+    t = _sub(points[mod1(i + 1, n)], points[mod1(i - 1, n)])
+    len = _norm(t)
+    len > 0.0 ? _scale(1.0 / len, t) : (0.0, 0.0, 0.0)
+end
+
+"""
     writhe_of(points::Vector{NTuple{3,Float64}}) -> Float64
 
 Discrete writhe of a closed polygon by Gauss-integral quadrature:
@@ -223,25 +257,28 @@ Discrete writhe of a closed polygon by Gauss-integral quadrature:
 \\frac{(\\dot r \\times \\dot r') \\cdot (r - r')}{|r - r'|^3} ds\\, ds'``,
 with adjacent-sample pairs omitted (their contribution is the local,
 integrable part). Planar curves give 0 by symmetry.
+
+The tangents are normalised and each sample carries its own chord length,
+including the closing edge, so the quadrature converges to the writhe
+rather than to `0`.
 """
 function writhe_of(points::Vector{NTuple{3,Float64}})::Float64
     n = length(points)
     n >= 4 || return 0.0
-    ds = total_length(Rod(points)) / n
+    segs = _closed_segments(points)
     acc = 0.0
     for i in 1:n, j in 1:n
         gap = abs(i - j)
         (gap <= 1 || gap >= n - 1) && continue
-        ri = points[i]
-        rj = points[j]
-        ti = _sub(points[mod1(i + 1, n)], points[mod1(i - 1, n)])
-        tj = _sub(points[mod1(j + 1, n)], points[mod1(j - 1, n)])
-        d = _sub(ri, rj)
+        ti = _unit_tangent(points, i)
+        tj = _unit_tangent(points, j)
+        (ti != (0.0, 0.0, 0.0) && tj != (0.0, 0.0, 0.0)) || continue
+        d = _sub(points[i], points[j])
         r = _norm(d)
         r <= 1e-12 && continue
-        acc += _dot(_cross(ti, tj), d) / r^3
+        acc += _dot(_cross(ti, tj), d) / r^3 * segs[i] * segs[j]
     end
-    acc * ds * ds / (4.0 * pi)
+    acc / (4.0 * pi)
 end
 
 """
@@ -249,6 +286,10 @@ end
 
 Linking number of two closed polygons via the Gauss double integral.
 A positive Hopf pair gives +1 (orientation-dependent).
+
+As in `writhe_of`, the tangents are normalised and each sample carries its
+own closed-polyline chord length; without both corrections the integral
+returned about `0.004` for a unit Hopf pair instead of `1`.
 """
 function linking_of(
     curve_a::Vector{NTuple{3,Float64}},
@@ -256,20 +297,19 @@ function linking_of(
 )::Float64
     na, nb = length(curve_a), length(curve_b)
     (na >= 3 && nb >= 3) || return 0.0
-    dsa = total_length(Rod(curve_a)) / na
-    dsb = total_length(Rod(curve_b)) / nb
+    segs_a = _closed_segments(curve_a)
+    segs_b = _closed_segments(curve_b)
     acc = 0.0
     for i in 1:na, j in 1:nb
-        ri = curve_a[i]
-        rj = curve_b[j]
-        ti = _sub(curve_a[mod1(i + 1, na)], curve_a[mod1(i - 1, na)])
-        tj = _sub(curve_b[mod1(j + 1, nb)], curve_b[mod1(j - 1, nb)])
-        d = _sub(ri, rj)
+        ti = _unit_tangent(curve_a, i)
+        tj = _unit_tangent(curve_b, j)
+        (ti != (0.0, 0.0, 0.0) && tj != (0.0, 0.0, 0.0)) || continue
+        d = _sub(curve_a[i], curve_b[j])
         r = _norm(d)
         r <= 1e-12 && continue
-        acc += _dot(_cross(ti, tj), d) / r^3
+        acc += _dot(_cross(ti, tj), d) / r^3 * segs_a[i] * segs_b[j]
     end
-    acc * dsa * dsb / (4.0 * pi)
+    acc / (4.0 * pi)
 end
 
 """
