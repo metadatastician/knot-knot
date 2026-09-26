@@ -1,0 +1,166 @@
+= feature/braids: braid words, closure to PD codes and the closure invariants
+
+Tracks the braid kernel behind `src/braid.jl`: TANGLE-style braid words,
+closing a braid into a planar diagram in the KnotAtlas PD convention, and
+checking that the closure really is the link it should be.
+
+Minimal working prototype: `examples/prototypes/braids.jl`.
+Self-contained (standard library only, no KnotKnot import), exits non-zero
+unless every pinned assertion holds.
+
+== Conventions pinned by the prototype
+
+Generators are `(i, sign)` pairs: `sigma_i` has sign `+1` (the strand at
+position `i` passes OVER the strand at `i+1`), `sigma_i^-1` has sign `-1`.
+Parsing is TANGLE-style: `s1.s1.s1` for positive generators, `S2` for
+inverses, whitespace tolerated, empty tokens skipped.
+
+Closure connects bottom strand `k` back to top strand `k`. A positive
+generator closes to `X[in_(i+1), in_i, out_i, out_(i+1)]`; a negative one to
+`X[in_i, out_i, out_(i+1), in_(i+1)]`. The empty braid closes to the unknot.
+
+== Values to reproduce exactly
+
+[cols="1,1,1,1,1,1,1"]
+|===
+| braid word | strands | crossings | components | determinant | genus | link
+
+| (empty)
+| 0
+| 0
+| 1
+| 1
+| 0
+| unknot
+
+| `s1`
+| 2
+| 1
+| 1
+| 1
+| 0
+| unknot
+
+| `s1.s1`
+| 2
+| 2
+| 2
+| 2
+| -
+| Hopf link
+
+| `s1.s1.s1`
+| 2
+| 3
+| 1
+| 3
+| 1
+| trefoil `3_1`
+
+| `S1.S1.S1`
+| 2
+| 3
+| 1
+| 3
+| 1
+| left trefoil
+
+| `s1.s1.s1.s1.s1`
+| 2
+| 5
+| 1
+| 5
+| 2
+| cinquefoil `5_1`
+
+| `s1.s1.S1`
+| 2
+| 3
+| 1
+| 1
+| -
+| unknot (redundant diagram)
+
+| `s1.S2.s1.S2`
+| 3
+| 4
+| 1
+| 5
+| 1
+| figure-eight `4_1`
+
+| `s1.s2.s1`
+| 3
+| 3
+| 2
+| 2
+| -
+| Hopf link (conjugate half-twist)
+|===
+
+Three independent checks must agree, and they are what make this more than a
+parser test:
+
+. **Components vs permutation.** The link components of the closure PD —
+   cycles of the through-strand pairing `a<->c`, `d<->b` — equal the cycles of
+   the permutation the braid induces on its strands. Asserted for ten words.
+. **Determinant.** Computed exactly from the Fox colouring matrix of the
+   closure: rows are crossings, columns are arcs, `+2` on the over arc and
+   `-1` on each under arc, then the absolute determinant of the minor that
+   deletes the last row and column. A one-crossing knot has an empty minor,
+   whose determinant is 1.
+. **Genus.** From the Seifert circles of the closure, matching `(k-1)/2` for
+   the `(2,k)`-torus knots.
+
+Also asserted: the closure of a knot braid has exactly as many arcs as
+crossings; mirroring the word (flipping every sign) preserves the
+determinant; and the conjugate half-twists `s1.s2.s1` and `s2.s1.s2` both
+close to the Hopf link, like `s1.s1`.
+
+== Risks to guard against
+
+* **Arc labels are not arcs.** As in the Alexander and quandle kernels, the
+  over strand of `X[a,b,c,d]` joins `d` to `b`; those two PD labels must be
+  merged before the colouring matrix is built. Using the `2c` labels as
+  columns makes the minor identically zero, so every determinant comes out 0
+  and the failure looks like a braid bug rather than a labelling bug.
+* **The closure renaming.** The bottom-to-top relabelling is what makes the
+  closure a diagram at all; skipping it leaves dangling arcs and the
+  component count silently disagrees with the permutation cycles. The
+  permutation check is the guard.
+* **Redundant words.** `s1.s1.S1` closes to the unknot with a kink: three
+  crossings, determinant 1, but writhe `+1`. Diagram invariants (writhe,
+  crossing count) are NOT link invariants, and tests must not expect them to
+  be.
+* **Links vs knots.** The genus formula `(c - s + 1)/2` is only integral for
+  knots; the prototype pins genus for knots only.
+* **Determinant is an obstruction.** `s1.s2.s1` and `s1.s1` both give the Hopf
+  link, and `4_1` and `5_1` share determinant 5. Do not treat the determinant
+  as an identification.
+
+== Plan going forward
+
+. **Braid group reductions.** Implement the braid relations
+   (`sigma_i sigma_j = sigma_j sigma_i` for `|i-j| > 1`,
+   `sigma_i sigma_{i+1} sigma_i = sigma_{i+1} sigma_i sigma_{i+1}`) so that a
+   word can be reduced, and check that reduction preserves the closure
+   invariants.
+. **Markov moves.** Stabilisation and destabilisation, and a test that
+   Markov-equivalent words give the same link invariants.
+. **Feeding the other kernels.** Route the closure PD through the Alexander,
+   Jones, Seifert and quandle prototypes, and pin the full invariant vector
+   for each word in the table above.
+. **Braid index.** Compute the minimal braid index for the knots in the table
+   and check it against the known values (2 for `3_1`, `4_1`, `5_1`).
+. **Alexander's theorem in practice.** Given a PD code, find a braid word
+   whose closure it is (Yamada's algorithm or Vogel's), and round-trip
+   `PD -> braid -> PD`.
+. **Interop.** Emit braid words in the shapes KnotTheory.jl and Skein.jl
+   expect, and accept them back.
+
+== Acceptance criteria
+
+* `julia examples/prototypes/braids.jl` exits 0.
+* Every table entry above is reproduced exactly.
+* The component/permutation agreement holds for every tested word.
+* No KnotKnot import in the prototype.
