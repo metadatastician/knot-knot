@@ -1,0 +1,162 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath)
+= Component feature: alexander-conway
+:toc:
+
+== Purpose
+
+The Alexander polynomial is the invariant with the widest reach: it bounds
+the genus, it yields the determinant, and its two-variable sibling (the
+Conway polynomial) satisfies the skein relation that makes recursive
+computation possible. This branch carries the minimal working prototype for
+the Fox-calculus route and the plan for the full implementation in
+`src/alexander.jl`.
+
+== Current state
+
+`src/alexander.jl` exposes `alexander_polynomial`, `conway_polynomial`,
+`determinant` and `genus`, over `LaurentPoly`. `test/cases/alexander_test.jl`
+pins the polynomials for the table, the determinants (3, 5, 5, ...), and the
+genus bound.
+
+== The prototype
+
+`examples/prototypes/alexander-conway.jl` — standard library only:
+
+[source,julia]
+----
+julia examples/prototypes/alexander-conway.jl
+----
+
+It builds the Wirtinger presentation from the PD code, differentiates it with
+Fox calculus, and reads the Alexander polynomial off a minor of the
+Alexander matrix. The pieces:
+
+[cols="1,2"]
+|===
+| Piece | What it does
+
+| `wirtinger`
+| Merges the two over-strand edges `d` and `b` of every crossing into one
+  generator (union-find), then writes one relator per crossing.
+
+| `fox_derivative`
+| Fox derivative of a group word, mapped to `Z[t, t^-1]` by sending every
+  generator to `t`.
+
+| `det_laurent`
+| Determinant of a matrix of Laurent polynomials by cofactor expansion —
+  exact, and adequate at this size.
+
+| `alexander_polynomial`
+| The minor determinant, normalised to the palindromic representative with
+  `Delta(1) = +1`.
+
+| `conway_polynomial`
+| The Conway substitution `z^2 = t + t^-1 - 2`, via the Chebyshev-like basis
+  `t^n + t^-n = P_n(t + t^-1)`.
+|===
+
+=== The convention that is easy to get wrong
+
+Wirtinger generators are **not** the PD's edge labels. An edge is cut at
+every crossing; a Wirtinger generator runs along the over-strand. At each
+crossing the two over-strand edges (`d` and `b`) denote the *same*
+generator. Skipping that merge produces a matrix whose minors are constants
+rather than polynomials — the prototype's first draft did exactly that, and
+the pins caught it.
+
+=== Pins
+
+[cols="1,1,1,1"]
+|===
+| Knot | `Delta(t)` | `grad(z)` | `abs(Delta(-1))`
+
+| `0_1` unknot
+| `1`
+| `1`
+| `1`
+
+| `3_1` trefoil
+| `t^-1 - 1 + t`
+| `1 + z^2`
+| `3`
+
+| `4_1` figure-eight
+| `-t^-1 + 3 - t`
+| `1 - z^2`
+| `5`
+
+| `5_1` cinquefoil
+| `t^-2 - t^-1 + 1 - t + t^2`
+| `1 + 3z^2 + z^4`
+| `5`
+|===
+
+Plus: `Delta(1) = 1`, palindromicity, and the round trip
+`grad(z^2) = Delta(t)` checked at two rational points per knot.
+
+== Forward implementation plan
+
+=== Phase 1 — share the PD walk and the Laurent substrate
+
+Land `wirtinger`'s edge-merging in `src/diagrams.jl` (it is the same
+union-find the Seifert-circle count uses) and move the prototype's
+`Dict{Int,Int}` arithmetic onto `LaurentPoly`, so the prototype and the
+package differ only in presentation.
+
+=== Phase 2 — replace cofactor expansion with Bareiss
+
+`src/alexander.jl` already uses Bareiss. Keep it, and add the prototype's
+cofactor route as a *test-only* cross-check on small diagrams: two
+independent determinant algorithms agreeing is a stronger guarantee than
+either alone.
+
+=== Phase 3 — the Conway polynomial as a first-class computation
+
+Today `conway_polynomial` is derived from `Delta`. The skein relation
+`grad(L+) - grad(L-) = z grad(L0)` is the definition, and computing it
+directly (via `switch_crossing` / `smooth_crossing` from `src/skein.jl`) is
+what makes the Conway kernel useful for recursion rather than only for
+display. Land the direct route, pin it against the derived one.
+
+=== Phase 4 — determinant and genus from the right kernel
+
+`determinant` is `abs(Delta(-1))`; `genus` is currently read off the
+Seifert-circle count. Add the Alexander-degree bound
+`deg(Delta) <= 2 * genus` as a cheap consistency check across the table —
+it is the invariant most likely to catch a regression in either kernel.
+
+== Risks
+
+* **Generator merging.** The over-strand merge is the single step that
+  separates a working implementation from one that silently returns
+  constants. It must be a named, tested helper, not an inline loop.
+* **Normalisation ambiguity.** `Delta` is defined up to `+-t^k`; only the
+  palindromic `Delta(1) = +1` representative is comparable across
+  implementations. Any new pin must state which representative it uses.
+* **Determinant cost.** Cofactor expansion is factorial; Bareiss is cubic.
+  The prototype is bounded to five crossings for that reason, and
+  `src/alexander.jl` must not inherit the prototype's route.
+* **Conway by substitution hides errors.** Because `grad` is derived from
+  `Delta`, a bug in `Delta` propagates silently. Phase 3's direct skein
+  route is the fix.
+
+== Acceptance criteria
+
+1. `julia examples/prototypes/alexander-conway.jl` exits 0.
+2. `wirtinger` returns one relator per crossing and one generator per
+   crossing for every table entry.
+3. `conway_polynomial(alexander_polynomial(d))` equals the Conway polynomial
+   obtained from the skein relation, for every table entry.
+4. `deg(Delta) <= 2 * genus` holds across the table.
+
+== Verification status
+
+Every pin above was reproduced by a second, independent implementation
+before being written down. Two bugs were caught that way: the missing
+over-strand merge (minors came out constant) and a `P_0 = 1` instead of
+`P_0 = 2` in the Chebyshev basis (which halved the constant term of every
+Conway polynomial). CI verification is pending — see
+`docs/governance/planning/features/README.adoc` for why workflow runs cannot
+currently be started from this branch.
