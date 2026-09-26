@@ -1,0 +1,151 @@
+= feature/knot-mechanics: applied mechanics of a knotted rod
+
+Tracks the applied-mechanics kernel behind `src/mechanics.jl`: discrete
+curvature of a rod centreline, Euler-Bernoulli bending energy, capstan tension
+decay through the contact core, superposed axial/bending stress, the exact
+breaking-force solve, the knot-efficiency prediction, and the Gauss-integral
+writhe/linking pair with its Calugareanu-White-Fuller check.
+
+Minimal working prototype: `examples/prototypes/knot-mechanics.jl`.
+Self-contained (standard library only, no KnotKnot import), exits non-zero
+unless every pinned assertion holds.
+
+== A bug found here
+
+`writhe_of` and `linking_of` in `src/mechanics.jl` evaluate the Gauss double
+integral using the RAW central differences `p[i+1] - p[i-1]` as tangents, and
+weight the double sum by `total_length / n`. Those central differences are
+O(ds) in magnitude, so the quadrature carries a spurious `ds^2` factor and
+**converges to zero** as the sampling is refined:
+
+[cols="1,1,1"]
+|===
+| quantity | correct | src/mechanics.jl
+
+| linking number of a Hopf pair (n = 64)
+| -0.9992
+| -0.0372
+
+| trefoil writhe, n = 80 / 120 / 240
+| 3.3335 / 3.3449 / 3.3518
+| 18.66 / 8.42 / 2.13
+|===
+
+The prototype keeps both forms (`writhe`/`linking` with unit tangents and
+closed-polygon arc lengths, `writhe_unnormalised`/`linking_unnormalised`
+reproducing the defect) and asserts the difference, so a fix cannot silently
+regress. Note also that `total_length` omits the closing segment of a closed
+polygon, which is a second, smaller error in the same functions.
+
+== Conventions and values pinned
+
+Curvature is the centred difference `kappa = |v x a| / |v|^3` with end samples
+mirroring their neighbours. For a regular `n`-gon inscribed in a circle of
+radius `R` this is exactly `1 / (R cos^2(pi/n))` — the analytic pin.
+
+Bending energy is `int 1/2 E I kappa^2 ds` with `I = pi d^4 / 64`; for a circle
+the closed form is `pi E I / R` and the discrete integral sits about 1% below
+it (the mirrored end samples overestimate `kappa`).
+
+Capstan tension is `F(s) = F0 exp(-mu theta(s))` inside the contact core
+(samples with curvature at least half the maximum) and constant outside it; a
+straight rod therefore carries the applied force everywhere.
+
+The breaking-force solve is exact per sample, so the identity
+`safety_factor(rod, breaking_force(rod)) == 1` must hold to machine precision
+whenever the bending stress alone does not already exceed UTS.
+
+[cols="1,1,1,1"]
+|===
+| geometry | breaking force (N) | safety at breaking force | efficiency
+
+| straight rod, d = 1
+| 667.588 (= uts * area)
+| 1
+| 1
+
+| trefoil R = 10, d = 1, n = 60
+| 443.56
+| 1
+| 0.664
+
+| trefoil R = 10, d = 1, n = 80
+| 451.38
+| 1
+| 0.676
+
+| trefoil R = 12, d = 1, n = 60
+| 480.90
+| 1
+| 0.720
+
+| trefoil R = 10, d = 4
+| 0 (bending alone exceeds UTS)
+| 0.5169
+| 0
+|===
+
+The knotted efficiencies sit inside the 0.60-0.75 band the docstring claims for
+empirical rope knots with a tight nipping turn, and a strand too thick for the
+knot's curvature has zero tensile capacity — it fails from bending alone.
+
+Writhe and linking: a planar closed curve has writhe exactly 0; writhe is
+orientation-independent; linking is symmetric in its arguments and negated by
+reversing exactly one component; a Hopf pair links once; the trefoil
+centreline's writhe is close to 3. The Calugareanu-White-Fuller residual
+`Lk - (Tw + Wr)` is small (-0.02) for zero twist with the radial frame used
+here, and large (4.56) for one twist — the radial field is not a material
+frame, which is a limitation of the current implementation rather than of the
+identity.
+
+== Risks to guard against
+
+* **Unnormalised quadrature.** The bug above. Any rewrite must use unit
+  tangents (or divide by the arc-length step) and the closed-polygon lengths.
+* **`total_length` is open.** It sums `n - 1` segments, so it under-measures a
+  closed polygon by one segment. Harmless for uniform sampling, wrong for
+  non-uniform.
+* **Bending-only failure.** `breaking_force` clamps at zero; a caller that
+  assumes a positive load will divide by zero downstream. `knot_efficiency`
+  is 0 in that regime, which is correct but easy to misread as "no data".
+* **The radial ribbon frame.** `calugareanu_check` builds a normal field
+  radially from the centroid. It is not a parallel-transport frame, so the CWF
+  identity only holds for zero twist. A proper frame (Bishop or
+  double-reflection) is needed before nonzero twist can be trusted.
+* **Units.** Points are mm, moduli MPa, forces N; the energy comes out in
+  N*mm. Nothing in the code enforces this, and the default material constants
+  are polymer-like (E = 3500 MPa, UTS = 850 MPa), not steel.
+* **Finite-difference ends.** The mirrored end samples make the first and last
+  curvature values unreliable; the bending energy inherits a systematic ~1%
+  bias from them.
+
+== Plan going forward
+
+. **Fix the Gauss quadrature.** Port `writhe`/`linking` from this prototype
+   into `src/mechanics.jl`, add the closing segment to `total_length`, and
+   keep the defective form as a regression test that must NOT reproduce it.
+. **Proper material frame.** Replace the radial field with a
+   parallel-transport (double-reflection) frame, then re-pin the CWF residual
+   for nonzero twist; it should close to within the quadrature error.
+. **Arc-length parameterisation.** Resample the centreline uniformly before
+   differencing so the curvature estimate is second-order accurate
+   everywhere, including the ends.
+. **Feed the theory side.** Use the corrected writhe to check the
+   `writhe`/`linking` values of the diagrams from `feature/diagram-kernel` and
+   `feature/braids`: a closed trefoil centreline should give writhe ~3 and the
+   Hopf closure linking ~1.
+. **Calibrate the efficiency band.** Run the model over a family of knot
+   geometries and record where the 0.60-0.75 band actually holds, so the
+   docstring claim becomes a measured range rather than an assertion.
+. **Units and constants.** Make the units explicit in the `Rod` constructor
+   (or document them in the type), and add a test that the straight-rod
+   efficiency is exactly 1.
+
+== Acceptance criteria
+
+* `julia examples/prototypes/knot-mechanics.jl` exits 0.
+* Every table entry above is reproduced, including the exact identities
+  (`safety_factor(rod, breaking_force(rod)) == 1`, straight-rod efficiency 1).
+* The defective quadrature is demonstrated to fail and the corrected one to
+  pass, in the same run.
+* No KnotKnot import in the prototype.
