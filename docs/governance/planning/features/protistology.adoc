@@ -1,0 +1,125 @@
+= feature/protistology: flagellar waveforms and kinetoplast catenanes
+
+Tracks the protistology kernel behind `src/protistology.jl`: flagellar
+waveform geometry (planar, helical and tipped), the beat summary (arclength,
+curvature statistics, total curvature, bending load), and kinetoplast
+catenane chains with their pairwise linking matrices.
+
+Minimal working prototype: `examples/prototypes/protistology.jl`.
+Self-contained (standard library only, no KnotKnot import), exits non-zero
+unless every pinned assertion holds. The module is deliberately geometry-only
+so it can split out as the seed of a future Proctist.jl, and the prototype
+keeps that property.
+
+== Conventions pinned by the prototype
+
+With `k = 2 pi / wavelength`:
+
+* `:planar` — `y = A sin(k s + phi)`, so the curvature peaks where the slope
+  vanishes and `kappa_max = A k^2` exactly. The wave is longer than its axis.
+* `:helical` — `(s, r cos(k s + phi), r sin(k s + phi))`, a helix of constant
+  curvature `kappa = r k^2 / (1 + (r k)^2)` and arclength
+  `length * sqrt(1 + (r k)^2)`.
+* `:tipped` — a planar wave with the amplitude envelope `s / length`, so it
+  peaks strictly below the planar wave.
+
+The kinetoplast chain places circle `i` in the xy-plane centred at
+`((i-1) * spacing, 0, 0)` and circle `i+1` in the xz-plane. Adjacent rings
+link exactly once with alternating signs; next-nearest and farther rings link
+zero. That is the chainmail condition, and it holds only while the spacing
+sits in the window `r < spacing < 2r`.
+
+== Values to reproduce exactly
+
+[cols="1,1,1,1,1"]
+|===
+| waveform | kappa_max | kappa_mean | arclength | bending load
+
+| planar (A = 4, lambda = 20)
+| 0.394509 (analytic `A k^2` = 0.394784)
+| 0.155806
+| 66.0259
+| 2.2162
+
+| helical (r = 2, lambda = 20)
+| 0.141531 (= kappa_mean; analytic 0.141522)
+| 0.141531
+| 59.0462 (analytic 59.0508)
+| 1.1828
+
+| tipped (A = 4, lambda = 20)
+| 0.359569
+| 0.102598
+| 55.7839
+| 0.9433
+|===
+
+The helical row is the strongest pin: the curvature is constant along the
+interior to 1.3e-14 and equals `r k^2 / (1 + (r k)^2)`, so `kappa_mean` and
+`kappa_max` are the same number. The planar arclength exceeds the nominal
+length of 50 because the sine stretches the axis.
+
+Linking matrix of a four-ring chain (r = 1, spacing = 1.5)::
++
+----
+ 0    -1     0     0
+-1     0     1     0
+ 0     1     0    -1
+ 0     0    -1     0
+----
+symmetric, zero diagonal, signs alternating along the chain. The same holds
+for five rings. Spacings 1.2 and 1.8 (inside the window) link; 2.5 and 3.0
+(outside it) do not.
+
+== Risks to guard against
+
+* **The linking quadrature.** Everything in the chainmail section depends on
+  the Gauss linking integral, and `linking_of` in `src/mechanics.jl` is
+  defective (see `feature/knot-mechanics`): with the unnormalised tangents the
+  entire matrix for this chain comes out as zero (maximum 0.0168 instead of
+  0.9996), so the chainmail condition is invisible. The prototype uses the
+  corrected quadrature and asserts the difference.
+* **The chainmail window is a precondition, not a result.** Outside
+  `r < spacing < 2r` the rings simply miss each other; a caller that assumes
+  adjacency will silently read zero as "no data" rather than "wrong spacing".
+* **Finite-difference ends.** The first and last curvature samples mirror
+  their neighbours, so `kappa_mean` includes two unreliable values. For the
+  helix this does not matter (constant curvature); for the planar wave it is a
+  small systematic bias.
+* **Units and scale.** Points are micrometres; nothing in the code enforces
+  it. The beat summary is dimensionless geometry, which is what makes the
+  module splittable — keep it that way.
+* **Phase invariance.** The statistics must not depend on the phase; the
+  prototype asserts this for the planar wave.
+
+== Plan going forward
+
+. **Fix the linking integral first.** The chainmail pins above are the
+   acceptance test for the `linking_of` repair described on
+   `feature/knot-mechanics`; until that lands, this feature cannot be trusted.
+. **Split Proctist.jl.** With the mechanics dependency removed (the beat
+   summary only needs curvature and arclength), carve this module out and
+   check that nothing else in the package imports it.
+. **Real beat data.** Replace the synthetic waveforms with measured flagellar
+   traces, and check that `total_curvature` and `bending_load` stay in the
+   published ranges for the corresponding organisms.
+. **Catenane statistics.** Report the distribution of pairwise linking
+   numbers over randomised chains, and check that the mean linking per ring
+   matches the chainmail prediction.
+. **Kinetoplast biology.** Model the actual minicircle size distribution and
+   the gap spacing window observed in trypanosomatids, and assert that the
+   generated chain falls inside it.
+. **One-call report.** Keep `protistology_report` dependency-light; it should
+   compose the beat summary and the linking matrix without importing the
+   engineering layer.
+
+== Acceptance criteria
+
+* `julia examples/prototypes/protistology.jl` exits 0.
+* Every table entry above is reproduced, including the constant-curvature
+  helix and the full four-ring linking matrix.
+* The chainmail window behaviour is asserted for spacings inside and outside
+  `r < spacing < 2r`.
+* The defective linking quadrature is demonstrated to lose the links, in the
+  same run.
+* No KnotKnot import in the prototype.
