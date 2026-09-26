@@ -1,0 +1,121 @@
+= feature/seifert-signature: Seifert matrix, signature and genus
+
+Tracks the Seifert-theory kernel behind `src/seifert.jl`: Seifert's algorithm
+(oriented smoothing to Seifert circles, one band per crossing), the band
+layout that fills a Seifert matrix `V`, the signature from the symmetrisation
+`V + V^T`, and the diagram genus `g = (c - s + 1) / 2`.
+
+Minimal working prototype: `examples/prototypes/seifert-signature.jl`.
+It is self-contained (standard library only, no KnotKnot import, no
+Project.toml) and exits non-zero unless every pinned assertion holds.
+
+== Conventions pinned by the prototype
+
+Oriented smoothing at a crossing `X[a,b,c,d,s]`::
+
+* `s >= 0` joins `a <-> d` and `b <-> c`;
+* `s < 0` joins `a <-> b` and `c <-> d`.
+
+The arcs joined this way partition into Seifert circles. Bands::
+
+* a positive crossing contributes the band `(circle(a), circle(b))`;
+* a negative crossing contributes the band `(circle(a), circle(c))`.
+
+Seifert matrix, with `g = c - s + 1` chosen from a spanning tree of the
+Seifert graph (each band not in the tree contributes one generator)::
+
+* `V[i,i] = +s` when the band's two ends are on the same circle, else `-s`;
+* `V[i,j]` is `+1` (or `-1` when `si < 0`) when band `i` and band `j` share a
+  circle or the same circle pair, and the ordering between them is
+  consecutive — `+1`/`-1` only ever fills the upper triangle.
+
+== Values to reproduce exactly
+
+[cols="1,1,1,1,1,1"]
+|===
+| knot | crossings | Seifert circles | genus | V | signature
+
+| unknot
+| 0
+| 0
+| 0
+| empty
+| 0
+
+| right trefoil
+| 3
+| 2
+| 1
+| `[-1 1; 0 -1]`
+| -2
+
+| figure-eight
+| 4
+| 3
+| 1
+| `[1 -1; 0 -1]`
+| 0
+
+| cinquefoil
+| 5
+| 2
+| 2
+| `[-1 1 0 0; 0 -1 1 0; 0 0 -1 1; 0 0 0 -1]`
+| -4
+|===
+
+The trefoil matrix `[-1 1; 0 -1]` is the published Seifert matrix of the
+right-hand trefoil; its symmetrisation has eigenvalues -1 and -3, giving
+signature -2. The figure-eight symmetrisation has eigenvalues `±sqrt(5)`,
+giving signature 0. The cinquefoil is the `(2,5)`-torus knot, whose
+signature is -4, and its symmetrisation is tridiagonal with -2 on the
+diagonal and +1 off it, so all four eigenvalues are negative.
+
+Structural facts also asserted: the signature of a knot is even,
+`|signature| <= 2 * genus`, `V + V^T` is symmetric, and mirroring negates
+the signature (`signature(mirror(D)) = -signature(D)`).
+
+== Risks to guard against
+
+* **The empty diagram has no Seifert surface.** `seifert_circles` and `genus`
+  must return 0 for the unknot, and the matrix must be `0x0`, not a 1x1 zero.
+* **Circle labels must be 1-based.** The spanning-tree union-find is sized
+  `n_circles`, so an off-by-one there is an out-of-bounds error, not a wrong
+  answer — easy to catch, but easy to write.
+* **Exact signature arithmetic.** Floating-point eigendecomposition would
+  almost certainly give the same answers here, but the inputs are small
+  integers, so the prototype uses rational congruence elimination (row and
+  column swaps together, so the transformation stays congruent). This is the
+  version worth keeping as the reference.
+* **Band ordering rules are the fragile part.** "Same circle pair,
+  consecutive" and "shares a circle" are two different conditions, and only
+  the upper triangle is filled. A future rewrite should keep the band index
+  as the ordering source of truth.
+* **Mirroring.** Negating every crossing sign negates `V`, hence the
+  signature. A mirror implementation that permutes arcs instead (as
+  `src/diagrams.jl` needs for the Jones mirror) must be checked against this
+  relation.
+
+== Plan going forward
+
+. **Share the PD walk.** Move the arc-extraction and union-find helpers into
+   a module used by `src/seifert.jl`, `src/alexander.jl` and the prototypes
+   rather than re-deriving them in each file.
+. **Cross-check the basis choice.** The spanning tree is chosen greedily in
+   band order. Verify against an explicit basis of `H_1(S)` that the
+   resulting `V` is independent of the tree (it should be, up to basis
+   change), and record that as a test.
+. **Signature via a dedicated exact routine.** Port the rational congruence
+   elimination into `src/seifert.jl` so `signature` never depends on
+   floating point, and add the classical pins above to `test/cases/`.
+. **Genus bound.** Use `|signature| <= 2 * genus` and
+   `deg(Delta) <= 2 * genus` as cheap sanity checks over the knot table.
+. **Alternating knots.** For reduced alternating diagrams the signature is
+   determined by the Gordon-Litherland pairing; add it as an independent
+   computation and assert agreement.
+
+== Acceptance criteria
+
+* `julia examples/prototypes/seifert-signature.jl` exits 0.
+* Every table entry above is reproduced exactly, including the matrices.
+* No KnotKnot import in the prototype.
