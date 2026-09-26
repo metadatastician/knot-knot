@@ -1,0 +1,123 @@
+= feature/conway-suite: rational tangles, Conway notation and the skein relation
+
+Tracks the Conway-suite kernel behind `src/tangle.jl` and `src/skein.jl`:
+rational tangles as exact rationals, the Conway calculus, continued fractions
+in both directions, 2-bridge classification, and the Conway skein relation
+that defines the Alexander-Conway polynomial.
+
+Minimal working prototype: `examples/prototypes/conway-suite.jl`.
+Self-contained (standard library only, no KnotKnot import), exits non-zero
+unless every pinned assertion holds.
+
+== Conventions pinned by the prototype
+
+The tangle calculus is exact rational arithmetic on `frac(T) in Q`::
+
+* horizontal sum `frac(T + S) = frac(T) + frac(S)`;
+* vertical product `frac(T * S) = frac(T) * frac(S)`;
+* rotation `frac(rot T) = -1 / frac(T)`;
+* mirror `frac(mir T) = -frac(T)`.
+
+Conway notation `[a1, ..., an]` evaluates right-to-left:
+`a1 + 1/(a2 + 1/(... + 1/an))`. The empty list is the zero tangle.
+`conway_notation` recovers a list by the Euclidean algorithm and round-trips.
+
+The numerator closure of the tangle `p/q` is the 2-bridge link `N(p/q)`: a knot
+exactly when `p` is odd, with determinant `|p|`.
+
+== Values to reproduce exactly
+
+[cols="1,1"]
+|===
+| Conway notation | fraction
+
+| `[1,1,1,1]`
+| `5/3`
+
+| `[2,2]`
+| `5/2`
+
+| `[3]`
+| `3`
+
+| `[]`
+| `0`
+
+| `[1,1,2]`
+| `5/3`
+
+| `[1,1,1,1,1]`
+| `8/5`
+|===
+
+2-bridge determinants: `N(3/1) = 3`, `N(5/3) = 5`, `N(5/2) = 5`,
+`N(9/2) = 9`. Knot fractions: `3/1`, `5/3`, `5/2`, `9/2` are knots; `2/1` is
+the Hopf link (two components, determinant 2).
+
+Tangle identities asserted for several fractions: rotation squared is the
+identity, rotation four times is the identity, mirror commutes with rotation,
+`T + mirror(T) = 0`, and the sums and products really do add and multiply.
+
+The skein relation, checked on the defining triple::
++
+----
+grad(3_1) - grad(unknot) = z * grad(Hopf)    1 + z^2 - 1 = z * z
+grad(4_1) - grad(3_1)  = z * (-2z)           1 - z^2 - (1 + z^2) = -2z^2
+----
+
+Determinant bridge, `|grad(2i)| = |Delta(-1)|`: unknot 1, trefoil 3,
+figure-eight 5, cinquefoil 5. Because a knot's Conway polynomial has only even
+powers, `(2i)^(2i) = (-4)^i` is real, so this stays exact integer arithmetic.
+
+And the two routes must agree: `N(3/1)` is the trefoil, `N(5/3)` and `N(5/2)`
+are both the figure-eight, `N(5/1)` is the cinquefoil. Note that `N(5/3)` and
+`N(5/1)` share determinant 5 while being different knots — the determinant is
+an obstruction, not a classification.
+
+== Risks to guard against
+
+* **Right-to-left evaluation.** Conway notation is not a standard continued
+  fraction read left-to-right; `[1,1,1,1] = 5/3`, not `3/5`. Every helper
+  must use the same convention, and the round-trip test is what pins it.
+* **The zero tail.** `continued_fraction([a, ..., 0])` has no value (division
+  by zero at the last step); the prototype raises rather than returning
+  something plausible.
+* **Fraction ambiguity.** `conway_notation` returns ONE valid list, not a
+  canonical one; the round trip is up to the usual continued-fraction
+  ambiguity (`[1,1,1,1]` and `[1,1,2]` give the same `5/3`).
+* **Knot vs link fractions.** `is_knot_fraction` looks at the numerator only.
+  Even numerators are 2-component links, and the determinant bridge above must
+  not be applied to them: a link's Conway polynomial has odd powers and
+  `grad(2i)` is then genuinely complex.
+* **Smoothing at the diagram level.** The prototype checks the skein relation
+  on known triples. `src/skein.jl` computes the triple from a diagram by
+  switching and oriented smoothing, which changes the component count; the
+  prototype does not reproduce that and should not be mistaken for it.
+
+== Plan going forward
+
+. **Share the exact polynomial type.** The prototype hand-rolls a
+   `Dict{Int,Rational{Int}}` Conway polynomial; the production version should
+   reuse `LaurentPoly` from `src/laurent.jl` so one polynomial engine serves
+   the Alexander, Conway and Jones kernels.
+. **Lift the skein relation to diagrams.** Implement `switch_crossing` and
+   `smooth_crossing` on PD codes (the smoothing must relabel arcs and track
+   components), then assert `verify_conway_skein == 0` on every crossing of
+   `3_1` and `4_1` as ULTRAPLAN Phase 4 requires.
+. **Skein recursion for the Conway polynomial.** With the diagram-level
+   triple in place, compute `conway_polynomial` by recursion on crossing count
+   and cross-check it against the Fox-calculus route in
+   `feature/alexander-conway`.
+. **2-bridge catalogue.** Enumerate `N(p/q)` for `|p|` up to a bound, record
+   the knot each one is, and check the determinant/genus/signature against
+   `feature/seifert-signature` and the knot table.
+. **Rational tangle invariants.** Add numerator and denominator closures with
+   their own skein relations, and check the fraction against the determinant
+   of the closure diagram.
+
+== Acceptance criteria
+
+* `julia examples/prototypes/conway-suite.jl` exits 0.
+* Every table entry above is reproduced exactly, including the round trips
+  and the tangle identities.
+* No KnotKnot import in the prototype.
