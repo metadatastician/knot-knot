@@ -1,0 +1,145 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath)
+= Component feature: jones-invariant
+:toc:
+
+== Purpose
+
+The Jones polynomial is the first invariant a knot package is judged on, and
+the Kauffman bracket is the cheapest way to compute it. This branch carries
+the minimal working prototype for that kernel and the plan for the full
+implementation in `src/jones.jl` (with `src/laurent.jl` underneath).
+
+== Current state
+
+`src/jones.jl` exposes `bracket_polynomial` and `jones_polynomial` over
+`LaurentPoly`; `src/laurent.jl` provides the exact integer Laurent
+arithmetic. `test/cases/jones_test.jl` pins the Jones polynomial for the
+table up to seven crossings, the mirror relation, and the braid-closure
+route.
+
+== The prototype
+
+`examples/prototypes/jones-invariant.jl` — standard library only. It
+re-implements the bracket state sum over the PD kernel:
+
+[source,julia]
+----
+julia examples/prototypes/jones-invariant.jl
+----
+
+=== Conventions (mirrors of src/jones.jl, stated because they are not the
+textbook defaults)
+
+* The A-smoothing at **every** crossing pairs `(a,b)` and `(c,d)`; the
+  B-smoothing pairs `(b,c)` and `(d,a)`. The pairing is a property of the
+  *unoriented* picture — it records which slots belong to the over-strand —
+  so it does not depend on the crossing sign.
+* `<D> = sum over states of A^(#A - #B) d^(loops - 1)`, `d = -A^2 - A^-2`.
+* `V(t) = (-A^3)^w <D>` at `A = t^(-1/4)`, `w` the writhe. Note the `+w`
+  power: src/jones.jl documents this explicitly, and it is the opposite of
+  the usual textbook sign, so a prototype that "fixes" it silently disagrees
+  with the package.
+
+=== Pins
+
+[cols="1,1,1,1"]
+|===
+| Knot | Bracket `<D>` (A-exponents) | `V(t)` | `abs(V(-1))`
+
+| `0_1` unknot
+| `1`
+| `1`
+| `1`
+
+| `3_1` trefoil
+| `A^7 - A^3 - A^-5`
+| `-t^-4 + t^-3 + t^-1`
+| `3`
+
+| `4_1` figure-eight
+| `A^8 - A^4 + 1 - A^-4 + A^-8`
+| `t^-2 - t^-1 + 1 - t + t^2`
+| `5`
+
+| `5_1` cinquefoil
+| `A^13 - A^9 + A^5 - A - A^-7`
+| `-t^-7 + t^-6 - t^-5 + t^-4 + t^-2`
+| `5`
+|===
+
+Plus `V(1) = 1` for every knot, and `abs(V(-1))` equal to the determinant —
+the identity that ties this kernel to the Alexander-Conway kernel and is the
+cheapest cross-check either has.
+
+== Forward implementation plan
+
+=== Phase 1 — a shared PD walk (removes the duplication)
+
+The prototype re-derives the slot table that `src/diagrams.jl` will expose.
+Land `slot_table` (or `arc_positions` + passage pairs) in `src/diagrams.jl`
+and have `src/jones.jl` consume it, so the bracket and the Gauss-word walk
+cannot drift apart.
+
+=== Phase 2 — complexity guard that is honest about what it guards
+
+`MAX_BRACKET_CROSSINGS = 20` admits `2^20` states, which is not a bound, it
+is a timeout with extra steps. Either lower it to a number that finishes
+(six or seven crossings) or route larger diagrams through the skein/Temperley-Lieb
+recursion. Record the choice in the docstring.
+
+=== Phase 3 — fix the mirror relation (this is a live bug, see below)
+
+`mirror` currently negates the crossing signs and nothing else. Because the
+bracket's smoothing is sign-independent, the mirrored diagram has an
+*identical* bracket while its writhe flips, so the normalisation produces
+non-integral exponents and `jones_polynomial` throws. The `jones — mirror
+relation` testset in `test/cases/jones_test.jl` calls exactly that path, so
+it fails today.
+
+The correct mirror of `X[a,b,c,d,s]` in this convention is the arc
+permutation `X[a,d,c,b,-s]` (reflection turns the counter-clockwise order
+into clockwise, and re-expressing it counter-clockwise swaps `b` and `d`).
+That keeps the PD valid — every edge still occurs twice — and it swaps the
+over- and under-strand, which is what actually changes the bracket.
+
+Landing order: fix `mirror` in `src/diagrams.jl`, then confirm the mirror
+testset passes, then re-pin. Until it lands, do not add Jones pins that
+route through `mirror`.
+
+=== Phase 4 — Laurent substrate hardening
+
+The prototype uses a bare `Dict{Int,Int}`; `src/laurent.jl` already wraps
+that in `LaurentPoly`. Move the prototype's arithmetic onto `LaurentPoly`
+so the two implementations are comparable line by line, and keep the
+eager zero-trimming (it is what makes equality of polynomials cheap).
+
+== Risks
+
+* **Convention sign.** The `+w` power and the sign-independent smoothing are
+  both easy to "correct" into wrongness. The pins above are the guard; a
+  change to either convention must re-derive all four rows.
+* **State-sum blow-up.** Beyond about ten crossings the bracket is
+  impractical. The braid-closure route in `test/cases/jones_test.jl` is the
+  pattern to generalise, not a bigger bound.
+* **Non-integral exponent throws.** The guard is correct for knots but will
+  also fire on any diagram whose writhe parity does not match — including
+  the sign-negated "mirror". Keep the guard; fix the input.
+
+== Acceptance criteria
+
+1. `julia examples/prototypes/jones-invariant.jl` exits 0.
+2. `mirror` produces a diagram whose bracket is the original's with `A`
+   replaced by `A^-1`, and `jones_polynomial(mirror(d))` has exponents that
+   are the negation of `jones_polynomial(d)`'s.
+3. `test/cases/jones_test.jl` passes in full, including the mirror
+   relation testset that fails today.
+4. `abs(V(-1)) == determinant` holds across the table.
+
+== Verification status
+
+Every pin above was reproduced by a second, independent implementation of
+the state sum before being written down (brackets, Jones polynomials,
+`V(1)` and `abs(V(-1))` for all four knots). CI verification is pending —
+see `docs/governance/planning/features/README.adoc` for why workflow runs
+cannot currently be started from this branch.
