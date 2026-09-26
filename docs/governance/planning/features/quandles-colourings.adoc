@@ -1,0 +1,120 @@
+= feature/quandles-colourings: Fox n-colourings and the fundamental quandle
+
+Tracks the quandle kernel behind `src/quandles.jl`: the dihedral quandle
+`R_n = Z/n` with `a #> b = 2b - a`, the fundamental quandle of a diagram, and
+the count of Fox n-colourings — the standard cheap obstruction that separates
+knots (and links) that the Jones polynomial cannot.
+
+Minimal working prototype: `examples/prototypes/quandles-colourings.jl`.
+Self-contained (standard library only, no KnotKnot import), exits non-zero
+unless every pinned assertion holds.
+
+== The convention that makes or breaks this
+
+A Fox n-colouring is a function on the **arcs** of the diagram — the segments
+that run from one undercrossing to the next, possibly passing over several
+crossings on the way. In the PD notation `X[a,b,c,d,s]` the over strand runs
+from `d` to `b`, so the labels `d` and `b` denote the SAME arc and must be
+merged before anything is counted.
+
+For a knot diagram with `c` crossings there are exactly `c` arcs. Using the
+`2c` PD labels as the variables instead silently over-counts by `n^c`: the
+trefoil reports 27 colourings for `n = 3` instead of 9, and every diagram
+looks maximally colourable.
+
+The constraint at a crossing, independent of the sign, is
+`2 * over - under_in = under_out (mod n)` with `under_in = a`,
+`over = d`, `under_out = c`. (The sign matters for the writhe and for the
+Seifert surface, not for the colouring.)
+
+== Values to reproduce exactly
+
+Arc counts: unknot 0 (no strand to smooth), trefoil 3, figure-eight 4,
+cinquefoil 5 — one arc per crossing.
+
+[cols="1,1,1,1,1"]
+|===
+| knot | determinant | R3 | R4 | R5
+
+| unknot
+| 1
+| 3
+| 4
+| 5
+
+| trefoil
+| 3
+| 9
+| 4
+| 5
+
+| figure-eight
+| 5
+| 3
+| 4
+| 25
+
+| cinquefoil
+| 5
+| 3
+| 4
+| 25
+|===
+
+These are not arbitrary: for a knot, the number of R_n colourings is
+`n * gcd(n, det(K))`, which the prototype's counts satisfy for every row.
+The trefoil is the only one of the four that is 3-colourable (9 > 3); the
+figure-eight and the cinquefoil are 5-colourable (25 > 5) while the trefoil is
+not (5 = 5, only the monochromatic colourings).
+
+A sharper pin, checked explicitly: the nine 3-colourings of the trefoil are
+exactly the three monochromatic ones plus the six permutations of the rainbow
+`(0, 1, 2)`.
+
+The prototype also verifies that `R_n` is genuinely a quandle for n = 3, 4, 5
+— idempotent, right-invertible and self-distributive — so the "colouring"
+count is a homomorphism count and not a linear-algebra coincidence.
+
+== Risks to guard against
+
+* **Arc merging.** As above: `d ~ b` at every crossing, or every count is
+  wrong by a factor of `n^c`. This is the same over-strand merge the
+  Alexander kernel needs, and it should be shared, not re-derived.
+* **Even n.** The over value cannot always be recovered from the two under
+  values (`2` is not invertible mod `n` when `n` is even), so a propagation
+  search must branch rather than divide. The brute force in the prototype has
+  no such issue.
+* **Links vs knots.** For an `m`-component link the colouring module has rank
+  `m`, and the monochromatic colourings are `n^m`, not `n`. The prototype
+  covers knots only; `is_n_colourable` must be generalised before links land.
+* **Determinant coupling.** The `n * gcd(n, det)` identity is a strong
+  cross-check, but only once `determinant` is available; keep it as a test,
+  not as the implementation.
+* **Quandle isomorphism.** `R_3` and `R_4` are not isomorphic to each other's
+  colouring behaviour for the figure-eight; do not assume monotonicity of the
+  colouring count in `n`.
+
+== Plan going forward
+
+. **Share the arc extraction** with `src/alexander.jl` and `src/seifert.jl`:
+   one PD-walk module, one over-strand merge.
+. **Replace brute force with propagation.** Walk the Gauss code, propagate
+   forced colours, branch only when two values are unknown. Keep the brute
+   force as the reference in tests.
+. **Determinant bridge.** Assert `count_colourings(d, n) == n * gcd(n, det)`
+   once `determinant` exists, for every knot in the table.
+. **General quandles.** The dihedral quandle is the cheap end; add the
+   fundamental quandle's own presentation (generators = arcs, relations
+   `a #> d = c`) and count its connected components, which detects links the
+   dihedral quandle cannot.
+. **Link components.** Generalise `is_n_colourable` to `n^(components)` and
+   pin the Hopf link (2 components, R3 gives 9 colourings).
+. **Colouring as a polynomial obstruction.** Record the minimal `n` for which
+   a knot is colourable (the "colouring number") in the knot table.
+
+== Acceptance criteria
+
+* `julia examples/prototypes/quandles-colourings.jl` exits 0.
+* Every table entry above is reproduced exactly, including the arc counts and
+  the rainbow decomposition of the trefoil's 3-colourings.
+* No KnotKnot import in the prototype.
