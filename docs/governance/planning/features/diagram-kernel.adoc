@@ -1,0 +1,157 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath)
+= Component feature: diagram-kernel
+:toc:
+
+== Purpose
+
+The diagram kernel is the substrate every other component sits on: the
+planar-diagram (PD) representation of a knot or link, and the walks over it
+(Gauss word, component decomposition). If the kernel is wrong, every
+invariant computed from it is wrong in a way that looks plausible.
+
+This branch carries the *minimal working prototype* for that kernel and the
+plan for landing the full implementation in `src/diagrams.jl` and
+`src/gauss.jl`.
+
+== Current state
+
+`src/diagrams.jl` already exposes the kernel: `Crossing`, `PlanarDiagram`,
+`pdcode`, `pd`, `writhe`, `mirror`, `crossing_count`, `arcs_of`,
+`traverse_components`. `src/gauss.jl` exposes `GaussWord`, `gauss_word`,
+`skein_gauss_code`. `src/knot_table.jl` holds the canonical diagrams for
+`0_1`, `3_1`, `4_1`, `5_1`, ... The behaviour is pinned by
+`test/cases/diagrams_test.jl`.
+
+What is *not* yet in place is a construction-time validity check: a PD code
+whose edge labels are not each incident to exactly two slots is currently
+accepted by `pdcode` and produces nonsense downstream.
+
+== The prototype
+
+`examples/prototypes/diagram-kernel.jl` — standard library only, no
+`KnotKnot` import, no `Project.toml`. Run it with:
+
+[source,julia]
+----
+julia examples/prototypes/diagram-kernel.jl
+----
+
+It exits non-zero unless every pin holds. It re-implements, from scratch and
+in the KnotAtlas convention, the operations the kernel needs:
+
+[cols="1,2"]
+|===
+| Operation | Role
+
+| `writhe`, `mirror`, `crossing_count`
+| The three operations that every diagram-level test already assumes.
+
+| `arcs_of`
+| Edge inventory; the basis of the validity check.
+
+| `is_valid_pd`
+| Every edge label occurs in exactly two slots. This is the missing
+  construction-time guard.
+
+| `slot_table`
+| The slot graph: which slot pairs with which inside a crossing
+  (under-passage 1 and 3, over-passage 4 and 2), and where each edge ends.
+
+| `gauss_word`
+| The oriented Gauss word, `+k` for passing over crossing `k`, `-k` for
+  passing under.
+
+| `component_count`
+| Link components, by exhausting the walk. Requires marking *both* slots
+  of each passage — a single-slot walk covers half the slots and miscounts
+  every knot as two components.
+|===
+
+=== Pinned values (literature/table, not self-derived)
+
+[cols="1,1,1,1"]
+|===
+| Diagram | Writhe | Gauss word | Components
+
+| `3_1` right-hand trefoil
+| `3`
+| `[-1, 3, -2, 1, -3, 2]`
+| `1`
+
+| `4_1` figure-eight
+| `0`
+| `[-1, 2, -3, 4, -2, 1, -4, 3]`
+| `1`
+
+| Positive Hopf link
+| `2`
+| `[-1, -2]`
+| `2`
+|===
+
+Edge counts: `3_1` has 6, `4_1` has 8, Hopf has 4. A malformed PD (an edge
+used once) is rejected by `is_valid_pd`.
+
+The Hopf link is in the pin set deliberately: a knot-only test set cannot
+distinguish "returns one component" from "always returns one component".
+
+== Forward implementation plan
+
+=== Phase 1 — validity at construction (small, high value)
+
+* `pdcode` rejects any entry list that fails `is_valid_pd`, with an error
+  naming the offending edge label(s) and their slot counts.
+* `PlanarDiagram` gains no new fields; the check is a constructor-time
+  guard only, so nothing downstream changes shape.
+* Pin in `test/cases/diagrams_test.jl`: `@test_throws` on a dangling-edge
+  code and on a triple-incidence code.
+
+=== Phase 2 — component traversal as a first-class result
+
+* `traverse_components` returns the walk itself (a vector of per-component
+  slot sequences), not just the count, so link invariants (linking number,
+  multi-component Alexander) can consume it.
+* The prototype's `component_count` becomes the length of that result.
+
+=== Phase 3 — Gauss word as data
+
+* `GaussWord` keeps `visits` and component ranges; add `signed_word` (the
+  signed index vector) as a derived accessor, since that is the form most
+  invariant kernels actually want.
+* Pin the signed word for `3_1`, `4_1`, `5_1` against the table.
+
+=== Phase 4 — table completion
+
+* Extend `knot_table.jl` past `5_1` (6_1, 6_2, 6_3, then 7_x) using
+  canonical diagrams, each pin-checked for writhe, edge count, Gauss
+  validity and component count before it is added.
+
+== Risks
+
+* **Silent malformed input.** The current kernel accepts bad PD codes. Until
+  Phase 1 lands, any new invariant test must call `is_valid_pd` itself.
+* **Convention drift.** The `(a,b,c,d,sign)` order is shared with
+  KnotTheory.jl. A prototype that changes the traversal order will pass its
+  own pins and disagree with the table; the pins above are the guard.
+* **PD cannot express a crossingless link.** A two-component unlink has no
+  edges, so `component_count` returns 0 for the empty diagram. Component
+  counts for crossingless links must come from `components` metadata, not
+  from the walk. Recorded here so it is not rediscovered as a bug.
+
+== Acceptance criteria
+
+1. `julia examples/prototypes/diagram-kernel.jl` exits 0.
+2. `pdcode` rejects malformed PD codes with a message naming the label.
+3. Every table entry passes writhe, edge-count, Gauss-word and
+   component-count pins.
+4. `test/cases/diagrams_test.jl` still passes unchanged for the
+   pre-existing behaviour.
+
+== Verification status
+
+Prototype logic mirrored and re-derived independently before pinning (Gauss
+words and component counts for `3_1`, `4_1` and the Hopf link checked
+against a second implementation). CI verification is pending: see
+`docs/governance/planning/features/README.adoc` for why workflow runs cannot
+currently be started from this branch.
