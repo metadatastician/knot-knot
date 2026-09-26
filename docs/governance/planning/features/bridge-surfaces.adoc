@@ -1,0 +1,119 @@
+= feature/bridge-surfaces: interop, reporting and the KnotTheory round-trip
+
+Tracks the bridge surfaces of ULTRAPLAN Phase 7: the stdlib-only JSON
+serialiser, the Conway-suite report, the Skein.jl `KnotRecord`-compatible
+interchange shape, and the KnotTheory.jl PD-dict round-trip.
+
+Minimal working prototype: `examples/prototypes/bridge-surfaces.jl`.
+Self-contained (standard library only, no KnotKnot import), exits non-zero
+unless every pinned assertion holds.
+
+== The three bridges
+
+[horizontal]
+JSON serialiser:: `to_json_string` over strings, numbers, booleans, `nothing`,
+vectors and `Dict{String,...}` maps. Object keys are **sorted**, so the output
+is byte-stable and therefore hashable and diffable. Escaping covers the JSON
+requirements: `"`, `\`, newline, tab, carriage return and every other control
+character as `\uXXXX`. Non-ASCII passes through unescaped. Non-finite floats
+and `nothing` render as `null`.
+
+Polynomial records:: `serialised_poly` renders a Laurent polynomial as
+`exp:coeff` pairs sorted by exponent and joined with commas, with `"0:0"` for
+the zero polynomial. This is the Skein.jl shape, so downstream storage can
+ingest KnotKnot evaluations without translation.
+
+PD round-trip:: `to_knottheory_dict` emits `entries` (KnotAtlas PD 5-tuples)
+plus `components` and the convention string
+`"knotatlas-pd: under a->c, over d->b, arcs counter-clockwise"`;
+`from_knottheory_dict` rebuilds the diagram. The round trip must be an
+involution.
+
+== Values to reproduce exactly
+
+Polynomial serialisation::
++
+----
+trefoil Alexander    t^-1 - 1 + t            ->  -1:1,0:-1,1:1
+figure-eight Alex.   -t^-1 + 3 - t           ->  -1:-1,0:3,1:-1
+cinquefoil Alex.     t^-2 - t^-1 + 1 - t + t^2 -> -2:1,-1:-1,0:1,1:-1,2:1
+trefoil Conway       1 + z^2                 ->  0:1,2:1
+trefoil Jones        -t^-4 + t^-3 + t^-1     ->  -4:-1,-3:1,-1:1
+zero polynomial                             ->  0:0
+single constant      5                      ->  0:5
+gapped exponents                           ->  -3:1,0:-1,7:2
+----
+
+Escaping: `a"b` -> `a\"b`, `a\b` -> `a\\b`, newline/tab/CR -> `\n`/`\t`/`\r`,
+`\x01` -> `\u0001`, `\x1f` -> `\u001f`, a space and non-ASCII unchanged, the
+empty string unchanged.
+
+Rendering: strings quoted, `true`/`false` bare, `nothing`/`Inf`/`NaN` as
+`null`, `1.5` as `1.5`, `[1, "a", nothing]` as `[1, "a", null]`, empty vector
+and empty object as `[]` and `{}`, and keys sorted at every nesting level:
+`{"z": {"x": 2, "y": 1}}`.
+
+Round-trip: the trefoil's three crossings and its single component survive
+exactly; a two-component diagram keeps both components; a dict with no
+`components` key still rebuilds the crossings and reports none;
+`to_knottheory_dict(from_knottheory_dict(x)) == x`.
+
+Record: exactly the fourteen field families (name, gauss_code,
+diagram_format, crossing_number, writhe, alexander_polynomial,
+jones_polynomial, conway_polynomial, determinant, signature, genus,
+seifert_circle_count, colorings, generator), with `diagram_format` =
+`"knotknot-pd-v0"`, `generator` = `"KnotKnot.jl"`, the serialised polynomials
+above, the invariants `(3, -2, 1)` and the colouring counts
+`{"R3": 9, "R5": 5}`. The record serialises to JSON, and the serialisation is
+byte-stable across calls.
+
+== Risks to guard against
+
+* **Key order.** The sort is what makes the output stable. It compares
+  `(key, value)` pairs, which is safe only because dict keys are unique — the
+  comparison never reaches the values. Adding a second sort key or a custom
+  `isless` could break that.
+* **No JSON parser.** The package serialises but does not parse, so a
+  round-trip test can only re-read its own output through its own structures.
+  The prototype checks well-formedness structurally (balanced delimiters, no
+  trailing commas, quoted keys) rather than pretending to parse.
+* **The PD convention string is load-bearing.** Anything downstream that
+  reads `entries` must agree on `under a->c, over d->b`. The string is pinned
+  so a silent change is visible.
+* **Missing `components`.** A dict produced elsewhere may omit the key;
+  `from_knottheory_dict` must not lose the crossings, and must not invent
+  components either.
+* **Float rendering.** `repr` is used for floats, which is round-trippable
+  but not human-pretty; nothing here should be relied on for presentation.
+* **Schema drift.** `diagram_format` and the `schema` tag of the visualisation
+  payload are versioned strings. Bump them deliberately; the prototype pins
+  the current value.
+
+== Plan going forward
+
+. **Share the serialiser.** Move the JSON writer and `serialised_poly` into one
+   module used by `src/interop.jl` and the web-laboratory payload writer, so
+   the two cannot drift.
+. **Round-trip against real KnotTheory.jl output.** Once `interop/` CI exists
+   (Phase 9), feed an actual `KnotTheory.pdcode` dict through
+   `from_knottheory_dict` and back, rather than only our own dicts.
+. **Parse, minimally.** Add a small reader for the subset we emit (objects,
+   arrays, strings, numbers, booleans, null) so round-trips are real. Keep it
+   dependency-free; registry JSON packages stay optional.
+. **Report coverage.** Assert the Conway-suite report against the invariants
+   pinned on `feature/jones-invariant`, `feature/alexander-conway`,
+   `feature/seifert-signature` and `feature/quandles-colourings`, so the
+   report cannot disagree with the kernels it summarises.
+. **Visualisation payload.** Pin the `knotknot/visual-v0` schema and the
+   annotation strings, and check the payload parses with the same reader.
+. **Versioning.** Record a compatibility note for each schema bump, and keep
+   the old tags accepted for reading even after the writer moves on.
+
+== Acceptance criteria
+
+* `julia examples/prototypes/bridge-surfaces.jl` exits 0.
+* Every serialisation, escaping and rendering pin above is reproduced exactly.
+* The KnotTheory PD round-trip is an involution, with and without a
+  `components` key.
+* The emitted record is well-formed JSON and byte-stable across calls.
+* No KnotKnot import in the prototype.
