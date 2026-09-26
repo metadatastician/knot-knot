@@ -30,3 +30,28 @@
     @test all(v.sign == 1 for v in gw.visits)
     @test count(v -> v.over, gw.visits) == 3
 end
+
+@testset "diagrams — mirror swaps the passages, not just the signs" begin
+    # A mirror reflects the projection plane, so at every crossing the two
+    # passages that were over become under and vice versa: X[a,b,c,d,s] ->
+    # X[a,d,c,b,-s]. Sign negation alone (the pre-#mirror-fix behaviour)
+    # leaves a diagram of the wrong knot.
+    tre = standard_knot("3_1").pd
+
+    m = mirror(tre)
+    @test [c.arcs for c in m.crossings] == [(1, 5, 2, 4), (3, 1, 4, 6), (5, 3, 6, 2)]
+    @test all(c.sign == -1 for c in m.crossings)
+
+    # Arc labels survive, so the mirrored diagram is still a valid PD.
+    @test Set(arcs_of(m)) == Set(arcs_of(tre))
+    @test crossing_count(m) == crossing_count(tre)
+    @test writhe(m) == -writhe(tre)
+
+    # Involutive: mirror(mirror(d)) is d again, crossings and signs alike.
+    mm = mirror(m)
+    @test [c.arcs for c in mm.crossings] == [c.arcs for c in tre.crossings]
+    @test [c.sign for c in mm.crossings] == [c.sign for c in tre.crossings]
+
+    # The unknot has no crossings, so it mirrors to itself.
+    @test mirror(standard_knot("0_1").pd).crossings == Crossing[]
+end
