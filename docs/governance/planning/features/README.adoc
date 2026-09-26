@@ -1,0 +1,104 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath)
+= Component features — branch set and prototype index
+:toc:
+
+== What this directory holds
+
+One plan per component feature of the knot-knot ULTRAPLAN, each living on its
+own branch together with a *minimal working prototype* under
+`examples/prototypes/`. The prototype proves the component's core algorithm
+in isolation — standard-library Julia only, no `KnotKnot` import, no
+`Project.toml` — before any of it is wired into `src/`.
+
+Run any prototype with:
+
+[source,bash]
+----
+julia examples/prototypes/<slug>.jl
+----
+
+Each exits non-zero unless every pinned assertion holds. The pins are
+literature or table values (writhes, determinants, Jones/Alexander/Conway
+polynomials, colouring counts, bending energies), never values the prototype
+produced itself.
+
+== The branch set
+
+[cols="1,2,1"]
+|===
+| Branch | Component | Prototype
+
+| `feature/diagram-kernel`
+| PD representation, walks, Gauss words, component decomposition
+| `diagram-kernel.jl`
+
+| `feature/jones-invariant`
+| Kauffman bracket state sum, Jones polynomial
+| `jones-invariant.jl`
+
+| `feature/alexander-conway`
+| Fox calculus, Bareiss determinant, Alexander and Conway polynomials
+| `alexander-conway.jl`
+
+| `feature/seifert-signature`
+| Seifert circles, band Seifert matrix, signature, genus
+| `seifert-signature.jl`
+
+| `feature/quandles-colourings`
+| Finite quandles, fundamental quandle presentation, colouring counts
+| `quandles-colourings.jl`
+
+| `feature/conway-suite`
+| Rational tangles, two-bridge classification, skein triples
+| `conway-suite.jl`
+
+| `feature/braids`
+| Braid words, closures, braid index
+| `braids.jl`
+
+| `feature/knot-mechanics`
+| Rod mechanics: curvature, stress, capstan, efficiency
+| `knot-mechanics.jl`
+
+| `feature/protistology`
+| Flagellar waveforms, beat summaries, kinetoplast catenanes
+| `protistology.jl`
+
+| `feature/bridge-surfaces`
+| Reports, JSON bridges, KnotTheory round-trips, web-lab payloads
+| `bridge-surfaces.jl`
+
+| `feature/estate-integration`
+| Phase 9 estate items: CLADE ratification, interop CI, Axiom loop
+| `estate-integration.jl`
+|===
+
+== Why the prototypes are self-contained
+
+A prototype that imports `KnotKnot` cannot fail for its own reasons: a broken
+kernel upstream would look like a broken prototype. Keeping the prototype
+stdlib-only means each branch can be developed, reviewed and re-derived
+independently, and the moment it lands in `src/` the existing test suite
+(`test/runtests.jl`, `test/cases/`) is the integration gate.
+
+== Verification status and the CI caveat
+
+Every prototype's arithmetic was re-derived by a second, independent
+implementation before its pins were written down, and every pin was checked
+against the table values already pinned in `test/cases/`.
+
+What is *not* yet done is CI verification on these branches. Workflow runs
+triggered by pushes or pull requests created with the agent's GitHub App
+token are refused by GitHub at startup (conclusion `startup_failure`, zero
+jobs), while the identical commit pushed to `main` runs normally. This was
+established by a controlled experiment: pushing `main`'s own HEAD SHA to a
+throwaway branch produced a `startup_failure` run, and the same SHA pushed to
+`main` produced 25+ successful runs. The cause is therefore in the
+credentials the agent holds (the App installation appears to lack Actions
+write permission), not in the branch content.
+
+To verify a branch's prototype in CI, push any commit to it from the
+repository owner's account, or grant the agent App the Actions write
+permission. Locally, `julia examples/prototypes/<slug>.jl` is sufficient and
+needs no network access.
