@@ -74,12 +74,28 @@ writhe(d::PlanarDiagram)::Int = isempty(d.crossings) ? 0 : sum(c.sign for c in d
 """
     mirror(d::PlanarDiagram) -> PlanarDiagram
 
-Mirror image: flip every crossing sign (leave the arc layout untouched).
+Mirror image of a diagram. Reflecting the projection plane swaps every
+crossing's over- and under-passages, so each `X[a, b, c, d, s]` becomes
+`X[a, d, c, b, -s]`: slots `b` and `d` trade places (the two passages that
+were over become under, and vice versa) *and* every sign flips. The arc
+labels and the component bookkeeping are preserved, so `mirror` is an
+involution.
+
+Negating the signs alone is **not** a mirror — it leaves a diagram of the
+wrong knot, which silently broke `jones — mirror relation` (the bracket
+exponent stops being a multiple of 4 and the call throws) and
+`signature(mirror(...))` (it returned `1` for the trefoil instead of `2`).
+
 For knot invariants the mirror sends ``V(t) \\mapsto V(t^{-1})`` and
 ``\\sigma \\mapsto -\\sigma``.
 """
 function mirror(d::PlanarDiagram)::PlanarDiagram
-    PlanarDiagram([Crossing(c.arcs, -c.sign) for c in d.crossings], d.components)
+    crossings = Vector{Crossing}(undef, length(d.crossings))
+    for (i, c) in enumerate(d.crossings)
+        a, b, cc, dd = c.arcs
+        crossings[i] = Crossing((a, dd, cc, b), -c.sign)
+    end
+    PlanarDiagram(crossings, d.components)
 end
 
 """

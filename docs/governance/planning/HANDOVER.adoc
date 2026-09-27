@@ -1,0 +1,230 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+// Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath)
+= Baton handover — knot-knot component features
+:toc:
+
+== Read this first
+
+Everything below is accurate as of the merge of PRs #7–#19 into `main`
+(`d1d85eb`). The repository now carries, for each of the eleven component
+features of `ULTRAPLAN.adoc`, a self-contained minimal working prototype
+under `examples/prototypes/` and a forward implementation plan under
+`docs/governance/planning/features/`. Two latent `src/` bugs that those
+prototypes exposed have been fixed.
+
+Nothing has been wired from a prototype into `src/`. That is the whole of
+the remaining work.
+
+== What just landed
+
+[cols="1,1,2"]
+|===
+| PR | Branch | Content
+
+| #7 | `feature/diagram-kernel`
+| prototype + plan
+
+| #8 | `feature/jones-invariant`
+| prototype + plan
+
+| #9 | `feature/alexander-conway`
+| prototype + plan
+
+| #10 | `feature/seifert-signature`
+| prototype + plan
+
+| #11 | `feature/quandles-colourings`
+| prototype + plan
+
+| #12 | `feature/conway-suite`
+| prototype + plan
+
+| #13 | `feature/braids`
+| prototype + plan
+
+| #14 | `feature/knot-mechanics`
+| prototype + plan
+
+| #15 | `feature/protistology`
+| prototype + plan
+
+| #16 | `feature/bridge-surfaces`
+| prototype + plan
+
+| #17 | `feature/estate-integration`
+| prototype + plan
+
+| #18 | `fix/diagram-mirror`
+| `src/diagrams.jl` + regression test
+
+| #19 | `fix/mechanics-quadrature`
+| `src/mechanics.jl` + regression test
+|===
+
+All thirteen were squash-merged with `--admin` because the repository's
+required status checks cannot run for this agent (see <<CI>>). The feature
+branches were purely additive — no `src/` or `test/` file was touched by
+any of PRs #7–#17, so they cannot have conflicted with anything.
+
+== The two `src/` bugs that were fixed
+
+=== `mirror` was not a mirror
+
+`mirror(d)` negated every crossing sign but left the arc layout untouched.
+Reflecting the projection plane swaps each crossing's over- and
+under-passages, so `X[a,b,c,d,s]` must become `X[a,d,c,b,-s]`: slots `b`
+and `d` trade places *and* the sign flips.
+
+The defect broke two testsets:
+
+* `jones — mirror relation` — `jones_polynomial(mirror(tre))` *threw*,
+  because the bracket exponent stopped being a multiple of 4.
+* `seifert — signature pins` — `signature(mirror(3_1))` returned `1`, not
+  `2`.
+
+Verified: `mirror(3_1)` now gives `V = -t^4 + t^3 + t = V(t^-1)` exactly and
+`mirror(5_1)` gives `-t^7 + t^6 - t^5 + t^4 + t^2 = V(t^-1)`; the
+signatures are `+2` and `+4`. The figure-eight is amphichiral and agrees
+either way — it is the trefoil and cinquefoil that discriminate.
+
+=== The Gauss quadrature converged to zero
+
+`writhe_of` and `linking_of` fed the raw centred differences
+`p[i+1] - p[i-1]` into the Gauss integrand as if they were unit tangents.
+Those chords have length about `2ds`, and the double sum was then weighted
+by a single global `ds = total_length / n`, so the integrand came out short
+by roughly `4 ds^2` and both integrals converged to `0`.
+
+Fixed by normalising the tangents (`_unit_tangent`) and giving each sample
+its own closed-polyline chord length (`_closed_segments`, closing edge
+included). `total_length` and `segment_lengths` keep their open-polyline
+semantics — `beat_summary` integrates an open flagellar centreline and must
+not gain a closing edge.
+
+Verified values (independent Python port of the same quadrature):
+
+[source]
+----
+linking_of, unit Hopf pair   n=96: -0.999643  n=192: -0.999911  n=384: -0.999978
+writhe_of, (2,3)-torus curve n=120: -1.3478    n=240: -1.3427
+writhe_of, planar circle     exactly 0 (unchanged, by symmetry)
+calugareanu_check(circle; twist_turns=3, width=0.2): linking 3.002579, residual +0.002579
+kinetoplast chain(4): alternating +/-1 adjacent, 0 next-nearest
+----
+
+That repaired six testsets: `mechanics — writhe and linking integrals`,
+`mechanics — Calugareanu identity on a planar ribbon`, `protistology —
+kinetoplast catenane chain`, `protistology — one-call report`, plus the two
+above.
+
+[[CI]]
+== CI: the blocker you must know about
+
+`julia-ci.yml` and every reusable governance workflow
+(`Runtime Policy`, `Estate Rules`, `OpenSSF Compliance`, `K9 Contract
+Validation`, `Hypatia Security Scan`, ...) return `startup_failure` with
+zero jobs for any push or pull request authenticated with the agent's
+GitHub App token — **including pushes to `main`**. First-party checks that
+do not come from a workflow file (CodeQL, GitGuardian, Semgrep) run
+normally.
+
+Consequence: `main`'s `Test`, `JET` and `Format` jobs have not run against
+the merged fixes. This is a credential problem, not a content problem, and
+it predates this work.
+
+To get CI to run, the repository owner must either push a commit to `main`
+from their own account or grant the agent App the Actions write permission.
+
+== How the prototypes were verified, and what that does not cover
+
+Julia is not installed in the environment where this work was done. No
+prototype has been executed. What *was* done:
+
+* every pin was re-derived by a second, independent implementation (a
+  Python mirror of the algorithm) before it was written down;
+* every pin is a literature or table value, never a value the prototype
+  produced itself;
+* every prototype was checked for block and bracket balance, for a
+  stdlib-only call surface, and for lines within the JuliaFormatter
+  default margin of 92 characters;
+* the twelve AsciiDoc plan files were checked for balanced listing blocks,
+  tables and title underlines.
+
+So: the arithmetic is cross-checked, the syntax is structurally sound, but
+**"it runs and exits 0" is not yet established for any prototype**. Running
+them is the first thing to do.
+
+== What to do next, in order
+
+. *Get CI green.* Push any commit to `main` from the owner's account. The
+  `Test` job should now pass; if it does not, the failures are the ground
+  truth and everything else waits.
+. *Run the prototypes.* `julia examples/prototypes/<slug>.jl` for each of
+  the eleven. They need no network and no `KnotKnot` import. Fix any that
+  fail before using their pins.
+. *Read the plans.* `docs/governance/planning/features/<slug>.adoc` — each
+  one names the target `src/` module, the algorithm, the pins it must
+  satisfy, and the integration gate.
+. *Wire components into `src/`, one at a time.* The integration gate is
+  `test/runtests.jl`. Suggested order follows the dependency direction of
+  `ULTRAPLAN`: diagram-kernel → jones-invariant → alexander-conway →
+  seifert-signature → quandles-colourings → conway-suite → braids →
+  knot-mechanics → protistology → bridge-surfaces → estate-integration.
+. *Investigate the two remaining red jobs.* `Static analysis (JET)` and
+  `Format (JuliaFormatter)` were failing on `main` before any of this work
+  and their causes were never identified — the Actions log host is not
+  reachable from the authoring environment. Both need a local run.
+. *Phase 9.* `docs/governance/planning/features/estate-integration.adoc`
+  enumerates the six items: CLADE ratification and gv-clade-index
+  registration, an interop CI job, DOCUMENTER_KEY and `deploydocs`, the
+  Proctist.jl split assessment, the Axiom.jl learning loop, and the
+  General registry path.
+
+== Traps — do not repeat these
+
+* **PD edge labels are not Wirtinger generators.** At each crossing the two
+  over-strand slots `d` and `b` denote the same generator; merge them with
+  union-find before writing relators. For `c` crossings this yields exactly
+  `c` generators.
+* **Colouring variables are arcs, not PD edges.** Counting over all `2c` PD
+  labels makes every equation degenerate and returns `n^k`.
+* **Link components are not Seifert circles.** Oriented-smoothing
+  union-find gives 2 for the trefoil; the through-strand pairing is the
+  correct one (`a↔c`, `d↔b`). Keep the two union-finds separate.
+* **The Chebyshev-like basis needs `P_0 = 2`**, and the constant coefficient
+  of the Alexander polynomial must be added as a bare constant. Using
+  `P_0 = 1` silently halves every Conway constant term.
+* **A candidate Hopf-link geometry must not be two mutually intersecting
+  circles.** Use a unit `xy`-circle plus a radius-1 `xz`-circle centred at
+  `(1,0,0)`.
+* **A hand-written 3D cross product must be checked before trusting any
+  mirror.** A typo once produced a plausible-looking Hopf linking of
+  `-0.7289`; sanity-check against `|v×a| = |v||a|` for perpendicular
+  inputs.
+* **`numpy` is not installed.** Eigenvalue-based signatures must use exact
+  integer/rational inertia.
+* **`git checkout -B` off `origin/main` removes tracked directories that
+  exist only on the previous branch.** Untracked files survive; the whole
+  `docs/governance/planning/features/` tree was lost once this way.
+  Recreate after every switch.
+* **`cycle_count` must not chase permutation roots** — `while p[root] != root`
+  loops forever on a fixed-point-free transposition; use a visited set.
+* **Prototype destructuring trap:** closure elements are `(arcs, sign)`
+  2-tuples, so `a,b,c,d,s = c` raises. Destructure as `(arcs, s) = c` then
+  `a,b,c,d = arcs`.
+
+== Where the authoritative conventions live
+
+Each plan file restates the conventions its component depends on, already
+cross-checked. The load-bearing ones:
+
+* PD `X[a,b,c,d,s]`: under `a→c`, over `d→b`; the mirror is
+  `X[a,d,c,b,-s]`.
+* Jones: A-smoothing is sign-independent, pairing `(a,b)+(c,d)`; bracket
+  `d = -A^2 - A^-2`; `V(t) = (-A^3)^w <D>` at `A = t^(-1/4)`;
+  `texp % 4 == 0`.
+* Alexander: `Delta` is the minor deleting the last row and column,
+  normalised palindromic about 0 with `Delta(1) = +1`; `z^2 = t + t^-1 - 2`.
+* Seifert: positive smoothing joins `a↔d`, `b↔c`; negative joins `a↔b`,
+  `c↔d`; `V[i,i] = ±s`; the signature comes from the inertia of `V + V^T`.
+* Quandle: `2*over - under_in = under_out (mod n)`; counts `n*gcd(n, det)`.

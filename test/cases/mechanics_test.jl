@@ -9,6 +9,28 @@ function _circle(radius::Float64, samples::Int)
     pts
 end
 
+function _torus_curve(samples::Int, major::Float64 = 2.0)
+    # A closed (2,3)-torus curve: a trefoil-shaped space curve.
+    pts = Vector{NTuple{3,Float64}}(undef, samples)
+    for i in 1:samples
+        a = 2.0 * pi * (i - 1) / samples
+        r = major + cos(3.0 * a)
+        pts[i] = (r * cos(2.0 * a), r * sin(2.0 * a), sin(3.0 * a))
+    end
+    pts
+end
+
+function _hopf_pair(samples::Int)
+    # Unit circle in the xy-plane plus a smaller circle through its interior.
+    c1 = _circle(1.0, samples)
+    c2 = Vector{NTuple{3,Float64}}(undef, samples)
+    for i in 1:samples
+        ang = 2.0 * pi * (i - 1) / samples
+        c2[i] = (1.0 + 0.4 * cos(ang), 0.0, 0.4 * sin(ang))
+    end
+    (c1, c2)
+end
+
 @testset "mechanics — curvature of a circle" begin
     r = 10.0
     rod = Rod(_circle(r, 240); diameter = 1.0, youngs_mpa = 1000.0, uts_mpa = 500.0)
@@ -71,4 +93,27 @@ end
     # the sign tracks the frame-rotation convention.
     @test abs(res.linking) ≈ 3.0 atol = 0.1
     @test abs(abs(res.linking) - abs(res.twist + res.writhe)) < 0.1
+end
+
+@testset "mechanics — Gauss quadrature converges" begin
+    # The linking and writhe integrals are built from UNIT tangents weighted
+    # by the closed-polyline chord lengths (closing edge included). The
+    # pre-fix code fed in the raw centred differences (length ~2ds) with one
+    # global ds, leaving the integrand short by ~4 ds^2: both integrals
+    # converged to 0 and refining the mesh made them *worse*.
+    ca, cb = _hopf_pair(96)
+    coarse = linking_of(ca, cb)
+    fa, fb = _hopf_pair(192)
+    fine = linking_of(fa, fb)
+    # A Hopf pair links exactly once, and refinement does not move it.
+    @test abs(abs(coarse) - 1.0) < 0.02
+    @test abs(abs(fine) - 1.0) < 0.02
+    @test abs(fine - coarse) < 0.02
+
+    # A trefoil-shaped space curve has a non-zero writhe that settles under
+    # refinement; the old code returned ~0 at every resolution.
+    w1 = writhe_of(_torus_curve(120))
+    w2 = writhe_of(_torus_curve(240))
+    @test abs(w1) > 1.0
+    @test abs(abs(w1) - abs(w2)) < 0.02
 end

@@ -1,3 +1,15 @@
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 = Planning Axis
+
+== Contents
+
+* `ULTRAPLAN.adoc` — the phase plan for the whole package (Phases 0–8 done,
+  Phase 9 next).
+* `features/` — one plan per component feature, each paired with a minimal
+  working prototype under `examples/prototypes/`. See
+  `features/README.adoc` for the index and the CI caveat.
+* `HANDOVER.adoc` — baton handover: what has landed, the two `src/` bugs
+  that were fixed and how they were verified, the CI blocker, and the
+  ordered list of what to do next. Start here if you are picking the work
+  up.

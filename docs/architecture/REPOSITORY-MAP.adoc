@@ -113,13 +113,13 @@ predecessors did.
 | yes
 | REUSE licence texts, dual-licence model (code MPL-2.0 / docs CC-BY-SA-4.0)
 
+| `Project.toml`
+| yes
+| julia-library archetype mint: package manifest at root (Pkg convention)
+
 | `README.adoc`
 | yes
 | -
-
-| `archetypes/`
-| optional
-| template-only variation seam (ADR-0003); `just repo-init` removes it from minted repos
 
 | `benches/`
 | optional
@@ -149,13 +149,17 @@ predecessors did.
 | optional
 | optional feature packs
 
-| `mise.toml`
-| yes
-| pinned toolchains
+| `interop/`
+| optional
+| optional Julia environment for the KnotTheory.jl/Skein.jl bridge tests (Pkg convention, like docs/); URL-resolved and exercised on demand (`just interop`), never in the MUST CI path — see STATE.a2ml blockers 2
 
 | `knot-knot_chora.deed`
 | yes
 | the repo deed: universal AI entry point; family-7 allocation manifest + ply tree folded in (standards#837 pilot). Filename carries the repo slug (deed dispatch <stem>_chora.deed), so repo-init renames it at mint
+
+| `mise.toml`
+| yes
+| pinned toolchains
 
 | `scripts/`
 | yes
@@ -172,6 +176,10 @@ predecessors did.
 | `src/`
 | yes
 | -
+
+| `test/`
+| yes
+| julia-library archetype mint: Pkg.test() suite (distinct from tests/, the repo-gate suite)
 
 | `tests/`
 | yes
@@ -206,11 +214,9 @@ your own repo - but do not read their emptiness as neglect here.
 | `docs/governance/maintenance/adaptive/`
 | `docs/governance/maintenance/corrective/`
 | `docs/governance/maintenance/perfective/`
-| `docs/governance/planning/`
 | `docs/governance/planning/could/`
 | `docs/governance/planning/must/`
 | `docs/governance/planning/should/`
-| `docs/reports/compliance/`
 | `docs/reports/maintenance/`
 | `docs/reports/performance/`
 | `docs/reports/quality/`
@@ -227,20 +233,8 @@ your own repo - but do not read their emptiness as neglect here.
 | `docs/whitepapers/academic/`
 | `docs/whitepapers/industry/`
 | `docs/whitepapers/outreach/`
-| `examples/`
 | `features/boj-server/`
 | `features/panic-attacker/`
-| `src/aspects/`
-| `src/aspects/integrity/`
-| `src/aspects/observability/`
-| `src/aspects/security/`
-| `src/bridges/`
-| `src/contracts/`
-| `src/core/`
-| `src/definitions/`
-| `src/errors/`
-| `src/interface/generated/`
-| `src/interface/generated/abi/`
 | `tests/fuzz/`
 | `verification/benchmarks/`
 | `verification/coverage/`

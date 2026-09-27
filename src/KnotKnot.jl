@@ -52,8 +52,9 @@ include("report.jl")
 include("interop.jl")
 
 # --- public API -----------------------------------------------------------
-export LaurentPoly, lp_eval, lp_show_string
+export LaurentPoly, lp_eval, lp_show_string, lp_pow, lp_shift
 export Crossing, PlanarDiagram, pdcode, pd, writhe, mirror, crossing_count
+export arcs_of, traverse_components
 export GaussWord, gauss_word, skein_gauss_code
 export standard_knot, knot_names, KnotEntry
 export alexander_polynomial, conway_polynomial, determinant, genus
@@ -62,13 +63,13 @@ export seifert_circles, seifert_matrix, signature
 export Quandle, dihedral_quandle, alexander_quandle, is_quandle
 export fundamental_relations, coloring_count
 export Braid, braid_closure, parse_braid_word
-export RationalTangle, tangle_fraction, conway_notation, continued_fraction
+export RationalTangle, tangle_fraction, conway_notation, continued_fraction, rotate
 export two_bridge_det, is_knot_fraction
 export switch_crossing, smooth_crossing, skein_triple, verify_conway_skein
 export Rod, curvature_profile, bending_energy, capstan_tensions
 export stress_profile, safety_factor, breaking_force, knot_efficiency
 export writhe_of, linking_of, calugareanu_check
-export flagellum, beat_summary, kinetoplast_chain, protistology_report
+export flagellum, beat_summary, kinetoplast_chain, protistology_report, linking_matrix
 export ConwaySuiteReport, conway_suite
 export to_json_string, export_knot_record, write_visualization
 export to_knottheory_dict, from_knottheory_dict

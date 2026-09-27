@@ -1,9 +1,16 @@
+# SPDX-License-Identifier: MPL-2.0
 # KnotKnot — docs build (julia-library archetype; deploy deferred)
 #
 # Posture: BUILD-ONLY (docs/decisions/0004-docs-build-only.adoc). make.jl
 # carries no deploydocs call, so this job exercises the full Documenter
 # build without a DOCUMENTER_KEY deploy key. Provisioning the key and
 # enabling deploy is an owner task recorded in STATE.a2ml.
+#
+# The archetype's julia-actions/julia-docdeploy step was REMOVED here: with
+# deploy deferred it is a deploy-shaped step that cannot deploy, and it is
+# not on the estate's canonical actions allowlist, so its presence alone
+# made GitHub refuse this workflow at startup (jobs=0, an un-squabble-able
+# red). The build it wraps is expressed explicitly below instead.
 #
 # Fails LOUD while docs/ is absent: a declared `docs-site` capability with
 # no build is a defect (criterion 5.2.6, na-honesty).
@@ -20,10 +27,15 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   docs:
     name: Build (deploy deferred — ADR-0004)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7.0.1
       - name: Layout gate — fail loud while docs/ is absent
@@ -36,9 +48,28 @@ jobs:
         with:
           version: "1"
       - uses: julia-actions/cache@v3
+      # The estate renders AsciiDoc by default, so the Documenter pages under
+      # docs/src/ are .adoc and Documenter shells out to the asciidoctor
+      # binary. Install it explicitly rather than trusting the runner image.
+      - name: Install asciidoctor (Documenter renders .adoc pages)
+        run: sudo gem install asciidoctor --no-document
       # PIN-ME: resolve and lock this in the first estate pass (4.1.3
       # stays loud until pinned). Ref resolved 2026-09-19.
       - uses: julia-actions/julia-buildpkg@v1
-      - uses: julia-actions/julia-docdeploy@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build the Documenter pages (no deploy — ADR-0004)
+        run: |
+          set +e
+          julia --project=docs -e 'using Pkg; Pkg.develop(PackageSpec(path=".")); Pkg.instantiate()' 2>&1 | tee "$RUNNER_TEMP/docs-instantiate.log"
+          code=${PIPESTATUS[0]}
+          if [ "$code" -ne 0 ]; then
+            msg="$(tail -n 40 "$RUNNER_TEMP/docs-instantiate.log" | sed -e "s/%/%25/g" -e ":a" -e "N" -e "\$!ba" -e "s/\n/%0A/g")"
+            echo "::error::docs environment instantiate failed (exit $code):%0A$msg"
+            exit "$code"
+          fi
+          julia --project=docs docs/make.jl 2>&1 | tee "$RUNNER_TEMP/docs-build.log"
+          code=${PIPESTATUS[0]}
+          if [ "$code" -ne 0 ]; then
+            msg="$(tail -n 80 "$RUNNER_TEMP/docs-build.log" | sed -e "s/%/%25/g" -e ":a" -e "N" -e "\$!ba" -e "s/\n/%0A/g")"
+            echo "::error::Documenter build failed (exit $code) — tail of the output:%0A$msg"
+          fi
+          exit "$code"

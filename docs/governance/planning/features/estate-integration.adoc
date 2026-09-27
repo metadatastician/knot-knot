@@ -1,0 +1,131 @@
+= feature/estate-integration: ULTRAPLAN Phase 9, estate integration
+
+The last ULTRAPLAN phase. Phase 9 is not a mathematics kernel, so this branch
+carries a prototype that encodes the RULES the integration must satisfy rather
+than a computation, plus the plan for the six Phase 9 items.
+
+Minimal working prototype: `examples/prototypes/estate-integration.jl`.
+Self-contained (standard library only, no KnotKnot import), exits non-zero
+unless every pinned assertion holds. The values it validates mirror
+`.machine_readable/descriptiles/CLADE.a2ml` and `Project.toml` as they stand;
+they are embedded so the prototype runs anywhere.
+
+== What the prototype validates
+
+**The clade taxonomy.** A closed set of twelve categories, two letters each,
+each with an exact name. The taxonomy exists because two estate repos picked
+valid codes for the wrong reason: `paint-type` chose `pt` (Protocols & Interop)
+reading it as "PainT-type" when an image editor is `ap`, and `gossamer` chose
+`gv` (Governance & Standards) reading it as "Graphical/Visual" when there is no
+graphical clade. Both passed every check and sat filed under a category they
+had nothing to do with.
+
+**This repo's record.** `primary` = `dx` (Developer Ecosystem) with
+`primary-name` = "Developer Ecosystem" — the agreement CLADE-006 checks, since
+a code alone cannot express a wrong belief about what it means and the pair
+can. `secondary` = `["fv"]` (the core deliverables are correctness-gated
+mathematics). `prefixed-name` = `dx-knot-knot`, i.e. `primary + "-" +
+canonical-name`. The clade uuid `a6cbd9d9-f370-519d-a0d0-9d00bf3e780b` is
+well-formed with version nibble 5 (derived, not random). The lineage type
+`standalone` and the status phase `incubating` are both in their closed sets,
+and `present = true` agrees with a live phase.
+
+**Registry readiness.** Package name `KnotKnot` (matching the module, not the
+repo name), a well-formed registry uuid distinct from the clade uuid, version
+`0.1.0` as bare semver, the compat bound `1.9` as a bare minor version, the
+canonical repo URL, and a uuid for every dependency and extra. A git
+tree-sha1 is 40 lowercase hex characters — the shape the registry records per
+version.
+
+**The estate lockfile rule.** A STEP-level `uses:` must be recorded in
+`actions.lock` under that workflow's OWN path, or the run dies at startup with
+jobs = 0 and `startup_failure`; a JOB-level reusable-workflow ref that is
+missing is a harmless, separate class. Matching strips the subpath
+(`owner/repo/sub/path@ref` matches `owner/repo@ref`) and is case-insensitive.
+A ref locked only under a different workflow's path does not count. This is
+the rule whose violation leaves 39 estate repos with silently dead CI, because
+Dependabot rewrites refs in workflow YAML and never touches the lockfile.
+
+== The six Phase 9 items
+
+[cols="1,1,3"]
+|===
+| item | state | what it needs
+
+| CLADE ratification
+| assigned, pending owner
+| `dx` / "Developer Ecosystem" chosen 2026-09-25 by an Arena session. The owner must ratify. Note the trap the taxonomy exists for: `dx` is right because the value proposition is a toolkit other work builds on (KnotTheory.jl chose `dx` for the same reason), not because of anything in the implementation.
+
+| gv-clade-index registration
+| blocked on the owner
+| An entry in `verisim/seed/repos.a2ml`. Deriving the uuid does NOT register the repo, and registration is outward-facing and the owner's act — an agent must not do it.
+
+| interop CI job
+| blocked on the estate
+| A job for `interop/` that depends on KnotTheory/Skein/AcceleratorGate by URL, once the estate accepts a URL-dep job shape. The lockfile rule above is what keeps it alive.
+
+| DOCUMENTER_KEY / deploydocs
+| blocked on the owner
+| Secret provisioning, then switch `deploydocs` on (ADR-0004).
+
+| Proctist.jl split
+| ready to assess
+| `src/protistology.jl` is already geometry-only and dependency-light, which is exactly the precondition. See `feature/protistology`.
+
+| Axiom.jl learning loop
+| later
+| Train the curvature-to-stress surrogate from `examples/axiom_bridge.jl` exports and witness the three mechanics identities. Blocked on the corrected writhe/linking from `feature/knot-mechanics`.
+
+| General registry path
+| blocked on the owner
+| Tag and register KnotKnot in General when the owner is ready; the metadata pins above are what that entry needs.
+|===
+
+== Risks to guard against
+
+* **Agent overreach on registration.** Derivation, ratification and
+  registration are three different acts. Only the first two can be done here,
+  and even ratification is the owner's. A repo that looks registered but is
+  not is worse than one that is visibly incubating.
+* **The clade code trap.** A valid code chosen for the wrong reason passes
+  every automated check. The `primary`/`primary-name` pair is the only guard,
+  and the rationale text is what a human will actually read.
+* **Silently dead CI.** The lockfile rule is invisible in a green-looking
+  repo: jobs = 0 with `startup_failure` produces no test signal at all. Any new
+  workflow must have its step-level refs locked under its own path before it is
+  merged, and the gate that checks it must not be path-filtered (otherwise it
+  cannot become a required check).
+* **No deletion or renaming across estate boundaries.** KnotTheory.jl, Skein.jl
+  and Axiom.jl keep their identity; knot-knot bridges to them.
+* **Schema drift.** `diagram_format`, the visualisation `schema` tag and the
+  CLADE taxonomies are versioned closed sets; bump deliberately and keep old
+  values readable.
+
+== Plan going forward
+
+. **Owner checklist.** Present the ratification, registration, DOCUMENTER_KEY
+   and registry items as a single owner decision, with the rationale text from
+   `CLADE.a2ml` attached.
+. **Interop job shape.** Draft the `interop/` CI job with URL deps and lock
+   every step-level ref under its own path; verify with the lock rule in the
+   prototype before opening it.
+. **Proctist.jl split.** Cut `src/protistology.jl` out, keep it dependency-free,
+   and re-run the protistology prototype against the split package.
+. **deploydocs.** Add the Documenter setup behind the secret, gated so a
+   missing key skips rather than fails.
+. **Axiom.jl loop.** Land the mechanics quadrature fix first, then wire the
+   surrogate training to the corrected writhe/linking outputs.
+. **Registry entry.** Prepare the General metadata (name, uuid, repo, subdir,
+   version with git-tree-sha1, compat) as a reviewable artifact, held until the
+   owner is ready.
+. **Keep the prototype green.** Every taxonomy change in the estate must be
+   reflected here in the same commit, so the prototype stays the executable
+   statement of what the integration requires.
+
+== Acceptance criteria
+
+* `julia examples/prototypes/estate-integration.jl` exits 0.
+* Every clade, lineage, status, registry and lockfile pin above holds.
+* No KnotKnot import in the prototype.
+* Nothing in this branch performs an outward-facing act: no registration, no
+  tag, no push to another repository.
