@@ -47,3 +47,11 @@ last-updated = "2026-09-25"
 # effort = "easy"
 # impact = "low"
 # discovered = "2026-03-23"
+
+[[debt.should]]
+component = "CI and mint provenance"
+issue = "knot-knot#24: scanner build failure, stale generated arrival identity, Julia compat/JET failures and other independently-red CI. Source fixes tracked in rsr-template-repo#201/#202/#203 and standards#1054; standards#1050 is the existing build incident. Do not merge the inherited orphan branch or mask failures."
+effort = "hard"
+impact = "high"
+discovered = "2026-09-28"
+report = "docs/reports/maintenance/2026-09-28-hypatia-branch-triage.adoc"

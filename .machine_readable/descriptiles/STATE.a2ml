@@ -72,3 +72,11 @@ depends-on = []  # runtime deps: Julia stdlib only (see Project.toml); KnotTheor
 # julia-library archetype records the suite honestly: Aqua shape gate first,
 # then behavioural cases under test/cases/.
 shape = "Aqua + behavioural cases (gauss, jones, alexander, quandles, braids, tangles, skein, mechanics, protistology, report)"
+
+[maintenance-triage]
+date = "2026-09-28"
+scope = "Inherited CodeRabbit Hypatia comparison and current CI failure-stage audit"
+result = "Child branch obsolete; upstream branch salvage and independent CI repairs remain open"
+report = "docs/reports/maintenance/2026-09-28-hypatia-branch-triage.adoc"
+tracking = "https://github.com/metadatastician/knot-knot/issues/24"
+# Triage only: no full-suite pass, scanner execution, branch deletion or merge.

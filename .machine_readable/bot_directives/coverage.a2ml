@@ -59,3 +59,13 @@ coverage-percent = 0
 # easy-low-completed = 2
 # hard-low-deferred = 4
 # assessment = "Correctly prioritised — all MUST items addressed before COULDs"
+
+[coverage.sessions.hypatia-branch-triage-2026-09-28]
+date = "2026-09-28"
+visited = ["Git branch/template provenance", "CI jobs and annotations", "scanner workflow output contract", "arrival-pack extraction", "Julia template JET integration"]
+not-executed = ["Julia full suite", "Hypatia build and scan", "Nickel generation", "AsciiDoc rendering"]
+fixes = 0
+upstream-issues-created = 4
+local-tracker = "https://github.com/metadatastician/knot-knot/issues/24"
+report = "docs/reports/maintenance/2026-09-28-hypatia-branch-triage.adoc"
+notes = "Evidence-based triage, not a code-fix or whole-repository coverage claim. Child comparison obsolete; source-branch salvage and live CI repairs explicitly retained."
