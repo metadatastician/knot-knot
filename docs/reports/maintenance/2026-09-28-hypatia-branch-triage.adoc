@@ -1,0 +1,168 @@
+// SPDX-License-Identifier: CC-BY-SA-4.0
+= Hypatia branch disposition and source-level follow-up
+:toc:
+
+Audit date: 2026-09-28 UTC.
+Local tracking: https://github.com/metadatastician/knot-knot/issues/24[knot-knot#24].
+
+== Decision
+
+*The knot-knot `coderabbit/fix-hypatia-scan-failures/f36ac704` branch is an obsolete inherited template snapshot: do not merge it.*
+There is no pull request in knot-knot to close.
+During the initial audit, no branch was deleted, no unrelated-history merge was attempted, and no changes were pushed.
+Retirement is a disposition, not a claim that current CI is healthy.
+
+The similarly named *upstream template branch is a separate decision*: it contains later work requiring a targeted salvage review before deletion.
+That distinction is recorded in https://github.com/hyperpolymath/rsr-template-repo/issues/203[rsr-template-repo#203].
+
+== Evidence and provenance
+
+[cols="1,3",options="header"]
+|===
+|Object |Observed value
+|knot-knot main |`dedce6c706ab540d12671cbd50327c1385a1f53d`
+|knot-knot comparison head |`f4d84161ce080fc460a0e7b7cb6be6170fca0160`
+|Comparison history |One parentless commit, `Initialize coderabbit/fix-hypatia-scan-failures/f36ac704`, 2026-09-25T19:44:30Z
+|Initial main commit |`7f8bb8596500446d963d331c29d5ca735df30f10`, three seconds earlier
+|Template same-named branch head |`0b998ec8e213a3bc424a55c288e2fc801ec4b629`
+|Both branch trees |`c8cca9626d3390fd2c7929d9afc006773f2ce7e8` -- exactly equal
+|Template main / recorded mint source |`05bf1b97dd647e02e2a66a33e511a8922ca60e61`
+|Standards main inspected |`fcf6e8d66463ddcb23a0abc1ba6fa9732ea595bd`
+|Hypatia main inspected |`43124f025af26dadc9d268460410a205cfccefe8`
+|===
+
+After unshallowing local main, `git merge-base` still finds no common ancestor; GitHub's compare API independently reports the same condition.
+A two-tree comparison from knot-knot main to the orphan snapshot changes 537 files (+6,016/-19,044), including removal of `Project.toml`, Julia implementation and tests.
+This is not a fix-sized patch.
+
+The exact tree match proves that the child branch is a copy of the upstream branch snapshot.
+Its timing and topology are consistent with generation including all template branches; the original creation request was not available, so the precise UI/API route is not asserted.
+
+The original Hypatia exemptions and SMTP guard were merged via
+https://github.com/hyperpolymath/rsr-template-repo/pull/89[template PR #89] on 2026-09-15.
+They already exist on knot-knot main, including corrected exemption paths for `build-notification.yml` and `dot-wellknown-enforcement.yml`.
+PR #83 on that same upstream branch is also merged, but its final file list differs from its historical description; disposition rests on actual files and trees, not PR titles/bodies alone.
+
+=== Work still on the upstream branch
+
+Upstream comparison reports six commits ahead and 107 behind template main.
+Later commits include:
+
+* `f3285147dd9f6a72fcd8f451a638492ac59225e4`: vendored pre-commit, gitleaks and lint/format hooks.
+* `808c02dbcfee56e9276f359cbbe4ac6e184e41b5`: Deno refusal in hooks.
+* `0b998ec8e213a3bc424a55c288e2fc801ec4b629`: Deno-to-Bun changes and unresolved-import hook handling.
+
+Template main still has a Deno release-build branch and grandfathering language in its agent rules/arrival-pack renderer, and lacks those pre-commit/lint-format hook files in its current hook layout.
+These differences merit source-level reconciliation, not automatic cherry-picking.
+In particular, re-evaluate policy against current standards, adapt to the current hook paths, and review unresolved-import skipping against fail-closed requirements.
+`git cherry` is insufficient here: squash merges and path migrations make even already-integrated changes appear unique.
+
+== Current CI: separate the failures
+
+The following are observations at the audited main SHA, not a complete application correctness assessment.
+
+[cols="1,2,2",options="header"]
+|Surface |Established evidence |Next action
+|Hypatia
+|https://github.com/metadatastician/knot-knot/actions/runs/36350619568[Run 36350619568] fails at step 7, *Build Hypatia scanner*. No repository scan runs; missing SARIF/findings artifacts are secondary.
+|Resolve the build failure upstream; retain primary diagnostics. Do not add suppressions. Compiler, dependency, Hex and cache causes remain unconfirmed.
+|Julia tests
+|https://github.com/metadatastician/knot-knot/actions/runs/36350619100[Run 36350619100], both matrix jobs: Aqua reports missing compat entries for `LinearAlgebra` and `Printf`.
+|Add appropriate project compat constraints and rerun both versions without disabling Aqua.
+|JET
+|Same run, check 108708463648: JET 0.12.2 rejects `JET.test_package(path=".", julia_version="1")` with `MethodError` before analysis. Current template emits that exact call.
+|Repair and test the module-based integration at source, then propagate. This is not a knot-algorithm finding.
+|Julia formatting
+|Same run: failed, but available annotation only establishes exit 1.
+|Obtain primary diagnostics and validate using supported tooling; exact cause not established here.
+|CodeQL
+|https://github.com/metadatastician/knot-knot/actions/runs/36350618994[Run 36350618994]: annotation explicitly rejects advanced-configuration SARIF while default setup is enabled.
+|Owner selects one intended setup; do not disable both. Reading default-setup settings returned integration 403, so settings were not changed.
+|Docs
+|https://github.com/metadatastician/knot-knot/actions/runs/36350620377[Run 36350620377]: startup failure, zero jobs.
+|Obtain workflow rejection diagnostics before attributing to docs content. Exact cause unconfirmed.
+|Dogfood
+|https://github.com/metadatastician/knot-knot/actions/runs/36350619012[Run 36350619012]: *Compile the oracle* fails.
+|Obtain compiler diagnostics; unavailable oracle is not a compliance verdict.
+|Estate Rules
+|https://github.com/metadatastician/knot-knot/actions/runs/36350618890[Run 36350618890]: *Every tracked .adoc renders clean* fails.
+|Find offending files and repair rendering. Root shape and no-Markdown checks passed locally and are not this failing stage.
+|===
+
+=== Why a blind Hypatia pin refresh is not a fix
+
+The caller pins standards `da2c748aad55c1a1dcba00b60fe4a35017bc6540`, but that reusable resolves moving Hypatia HEAD and builds it.
+The source-keyed cache checks source identity, not successful compatibility of arbitrary scanner HEAD with the selected toolchain.
+This failure also shows that the formerly last-known-good fallback mentioned in
+https://github.com/hyperpolymath/standards/issues/1050[standards#1050] is not a durable workaround.
+Current standards still has the same scanner build path.
+
+A separate, executed regression exists in current standards' findings validator:
+
+[cols="2,1,1",options="header"]
+|Input |Pinned validator exit |Current validator exit
+|`[]` |0 |1
+|One finding with severity `warn` |0 |0
+|Malformed `{` |4 |4
+|Two documents: `[]` followed by an array containing a high finding |1 |0
+|===
+
+These results execute the exact jq expressions extracted from each workflow revision.
+The current file-size guard still rejects zero-byte output.
+The regressions are rejection of a valid clean document and loss of the exactly-one-document requirement; accepting two documents at validation does not prove the entire workflow would subsequently succeed.
+The Hypatia CLI explicitly supports successful scans with zero filtered findings.
+Do not confuse an empty findings array with missing output, and do not manufacture findings or suppress scanner errors to satisfy this gate.
+
+== Feedback delivered
+
+[cols="1,3",options="header"]
+|Tracking |Scope and acceptance
+|https://github.com/hyperpolymath/rsr-template-repo/issues/203[Template #203]
+|Exact inherited-tree reproduction; review later upstream commits before retirement; default-branch-only minting; explicit branch-set/source/tree receipt; report-only cleanup proposals that preserve child-local work.
+|https://github.com/hyperpolymath/rsr-template-repo/issues/201[Template #201]
+|Generated CLAUDE identity is stale despite project-specific descriptiles. Regenerate after mint metadata finalization and wire verification into mint/PR acceptance. Positive and stale-identity controls must run.
+|https://github.com/hyperpolymath/rsr-template-repo/issues/202[Template #202]
+|Repair JET integration and run a real minted Julia-package canary with supported tooling, formatting and Aqua. API failure must not be reported as source analysis.
+|https://github.com/hyperpolymath/standards/issues/1054[Standards #1054]
+|Restore the producer/consumer output contract: successful clean `[]` accepted; missing, malformed, multiple-document and invalid-severity output rejected; scanner failure remains failure. Include real CLI clean/crash controls.
+|https://github.com/metadatastician/knot-knot/issues/24[Knot-knot #24]
+|Branch disposition and outstanding local CI work, with run/check evidence and build-diagnostic proposals linked to existing standards/Hypatia issues.
+|===
+
+Attempts to comment on existing standards#1050 and hypatia#448 were rejected with `Resource not accessible by integration`.
+New issue creation succeeded.
+The unposted build-stage evidence and diagnostic proposals are preserved in knot-knot#24; this report does not claim those comments reached upstream.
+
+== Foundational ownership, not another app
+
+* *Standards*: specify scanner output/exit contracts and lifecycle acceptance. Use existing
+  https://github.com/hyperpolymath/standards/issues/634[#634] and
+  https://github.com/hyperpolymath/standards/issues/636[#636] for template/lifecycle coordination.
+* *rsr-template-repo*: implement and test fresh-child acceptance, including branch selection, rendered identity, workflow/tool APIs and path-correct suppression configuration.
+* *Scaffoldia and lifecycle orchestration*: invoke that contract; record source branch/commit/tree and intended child branch set. Do not clone its implementation into a new composer.
+* *Hypatia*: distinguish source findings from build/scan/schema/upload failures, using the environmental model in
+  https://github.com/hyperpolymath/hypatia/issues/448[#448] and diagnosis feedback in
+  https://github.com/hyperpolymath/hypatia/issues/567[#567].
+  An unexecuted scan is unavailable evidence, not zero findings.
+* *Shared workflow / scanner release integration*: preserve escaped bounded primary-error annotations and diagnostic artifacts; record scanner SHA, dependency lock and toolchain; test cold/warm caches and promote tested immutable scanner revisions through a canary.
+* *Fleet / branch cleanup automation*: detect and propose with provenance, deduplication and owner approval. No unattended mass edits, unrelated-history merges or age-only deletion.
+
+Existing `.hypatia-ignore` entries were not broadened or removed.
+Their prior review is not a permanent proof that future workflow changes remain safe; source-level rule precision and current fixtures are preferable to accumulating blanket exceptions.
+
+== Validation and limitations
+
+Executed:
+
+* Full-history Git topology and tree comparisons, including exact upstream/child tree identity.
+* GitHub PR, branch, jobs and check-annotation inspection.
+* Shipped arrival-pack extractor: project UUID, clade, purpose and source hashes disagree with the generated CLAUDE region.
+* Exact pinned/current jq validator controls listed above.
+* `bash scripts/check-root-shape.sh .` -- pass.
+* `bash scripts/check-no-md-in-docs.sh .` -- pass.
+* `git diff --check` after recording the audit -- pass.
+
+Not executed: full Julia suite, Hypatia build/scan, Nickel arrival-pack regeneration, or AsciiDoc rendering; the relevant runtimes are not installed here.
+Actions log downloads fail with EOF from the results-receiver host, although jobs and annotations are accessible.
+No application code, workflow pin, suppression, generated CLAUDE region, licence or GitHub setting was altered.
+The only repository changes are this audit and session bookkeeping.
