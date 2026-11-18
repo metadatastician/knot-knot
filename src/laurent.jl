@@ -36,7 +36,6 @@ end
 
 _lp_trimmed(p::LaurentPoly)::LaurentPoly = _lp_trim!(LaurentPoly(copy(p.terms)))
 
-Base.length(p::LaurentPoly)::Int = length(p.terms)
 Base.isempty(p::LaurentPoly)::Bool = isempty(p.terms)
 Base.keys(p::LaurentPoly) = keys(p.terms)
 Base.values(p::LaurentPoly) = values(p.terms)
@@ -121,7 +120,7 @@ Evaluate `p` at `x`. Negative exponents require a non-zero `x`.
 function lp_eval(p::LaurentPoly, x::Number)
     acc = 0 * x
     for (e, c) in p
-        acc += c * (x isa Integer && e < 0 ? (x // one(x))^e : x^e)
+        acc += c * x^e
     end
     acc
 end
