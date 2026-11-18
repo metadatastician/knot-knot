@@ -22,8 +22,10 @@ set -euo pipefail
 REPO_ROOT="${1:-.}"
 DOCS_DIR="$REPO_ROOT/docs"
 
-# Justified exceptions, relative to repo root. Empty by default.
-ALLOWED=()
+# Documenter consumes Markdown source pages; AsciiDoc is not supported.
+# Keep this exception limited to the five pages listed in docs/make.jl.
+ALLOWED=("docs/src/index.md" "docs/src/theory.md" "docs/src/conway.md"
+         "docs/src/mechanics.md" "docs/src/protistology.md")
 # docs/berrywiki/ and docs/wikis/ are wiki-SYNC source trees: their content is
 # mirrored to/from forge-hosted wikis (GitHub/GitLab), which are inherently
 # Markdown. Converting them to AsciiDoc would break the sync contract, so the

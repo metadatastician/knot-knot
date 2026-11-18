@@ -1,40 +1,46 @@
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:efd465cefb0fa147cb1f72bfd9d718583da74069a121c478e6f7eca61fa3fcea -->
+
+<!--
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath)
-= Applied knot mechanics
-:toc:
-:toc-placement: preamble
+-->
+# Applied knot mechanics
 
-Engineering units throughout: lengths in *mm*, forces in *N*, modulus
-and stress in *MPa* (1 GPa = 1000 MPa = 1000 N/mm²).
+Engineering units throughout: lengths in **mm**, forces in **N**, modulus
+and stress in **MPa** (1 GPa = 1000 MPa = 1000 N/mm²).
 
-== The superposition formula
+## The superposition formula
 
 At the strand surface,
 
-[stem]
-++++
+```math
 \sigma_{\text{total}}(s) = \frac{F(s)}{A} + \frac{E\,\kappa(s)\,d}{2},
 \qquad A = \pi (d/2)^2,
-++++
+```
 
-where stem:[\kappa = 1/R] is the centreline curvature. Inside the knot core
+where ``\kappa = 1/R`` is the centreline curvature. Inside the knot core
 the carried tension decays by capstan friction,
-stem:[F(s) = F_0 e^{-\mu\theta(s)}] with stem:[\theta] the accumulated
+``F(s) = F_0 e^{-\mu\theta(s)}`` with ``\theta`` the accumulated
 contact angle. This is the theory–practice bridge: the same curvature field
 the differential geometry computes drives the failure prediction.
 
-== Rope efficiency
+## Rope efficiency
 
 `breaking_force(rod)` solves for the load at which the peak superposed
 stress reaches UTS (bending stress is load-independent, axial stress scales
 linearly with load); `knot_efficiency` divides by the straight-strand
-strength stem:[\sigma_{\mathrm{uts}} A]. Empirical rope knots sit near
+strength ``\sigma_{\mathrm{uts}} A``. Empirical rope knots sit near
 0.60–0.75; the model reproduces that range when the geometry carries a
 tight nipping turn.
 
-== Topological integrals
+## Topological integrals
 
 `writhe_of` and `linking_of` evaluate the Gauss double integral by midpoint
 quadrature; `calugareanu_check` builds a twisted ribbon and verifies
-stem:[\mathrm{Lk} = \mathrm{Tw} + \mathrm{Wr}] numerically — the identity
+``\mathrm{Lk} = \mathrm{Tw} + \mathrm{Wr}`` numerically — the identity
 that underlies DNA topology and the protistology module.
+
+
+<!-- /coderabbit-ai-generated:v1 -->

@@ -45,7 +45,7 @@ function is_quandle(q::Quandle)::Bool
         sort([q.table[x, y] for x in 1:n]) == collect(1:n) || return false
     end
     for x in 1:n, y in 1:n, z in 1:n
-        q.table[q.table[x, y], z] == q.table[q.table[x, z], y] || return false
+        q.table[q.table[x, y], z] == q.table[q.table[x, z], q.table[y, z]] || return false
     end
     true
 end

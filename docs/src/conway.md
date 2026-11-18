@@ -1,33 +1,35 @@
+<!-- coderabbit-ai-generated:v1 -->
+
+<!-- coderabbit-ai-generated-section:v1:4d284eee04d4d7e90fdfe35ae074ccd4dda2dcf128d13af0131d99bb7b689f63 -->
+
+<!--
 // SPDX-License-Identifier: CC-BY-SA-4.0
 // Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath)
-= Conway suite
-:toc:
-:toc-placement: preamble
+-->
+# Conway suite
 
 Conway's rational-tangle calculus is exact rational arithmetic in KnotKnot.
 
-[source,julia]
-----
+```julia
 using KnotKnot
 continued_fraction([1, 1, 1, 1])   # 5/3 — the figure-eight fraction
 two_bridge_det(5 // 3)             # determinant = |numerator|
 is_knot_fraction(2 // 1)           # even numerator -> 2-component link
-----
+```
 
-== The one-call report
+## The one-call report
 
-[source,julia]
-----
+```julia
 using KnotKnot
 conway_suite("3_1")
-----
+```
 
 evaluates crossing data, writhe, Jones/Alexander/Conway polynomials,
 determinant, signature, genus, Seifert circle count and dihedral-quandle
 colouring counts (R₃, R₅) for any standard-table knot, `KnotEntry`, or raw
 `PlanarDiagram`.
 
-== The standard table
+## The standard table
 
 `knot_names()` lists `0_1` through `7_7` (Rolfsen). Every knot is pinned
 directly from its signed KnotAtlas PD code: the PD skeletons are the
@@ -39,9 +41,12 @@ not reconstruct the standard knots beyond 5₁, so the table never goes
 through it; `from_dt` remains available as a utility with that caveat
 documented.
 
-== Machine surfaces
+## Machine surfaces
 
-* `export_knot_record` — Skein.jl `KnotRecord`-compatible dict;
-* `write_visualization` — the web-laboratory payload (`just catalog`);
-* `to_knottheory_dict` / `from_knottheory_dict` — PD round-trips with
+- `export_knot_record` — Skein.jl `KnotRecord`-compatible dict;
+- `write_visualization` — the web-laboratory payload (`just catalog`);
+- `to_knottheory_dict` / `from_knottheory_dict` — PD round-trips with
 KnotTheory.jl.
+
+
+<!-- /coderabbit-ai-generated:v1 -->
