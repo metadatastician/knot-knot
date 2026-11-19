@@ -41,9 +41,8 @@ function _json_value(v::Vector)::String
 end
 
 function _json_value(d::Dict{String})::String
-    pairs = [
-        "\"" * _json_escape(k) * "\": " * _json_value(v) for (k, v) in sort(collect(d))
-    ]
+    kvs = sort(collect(d); by = first)
+    pairs = ["\"" * _json_escape(k) * "\": " * _json_value(v) for (k, v) in kvs]
     "{" * join(pairs, ", ") * "}"
 end
 

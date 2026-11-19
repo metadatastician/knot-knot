@@ -36,6 +36,7 @@ end
 
 _lp_trimmed(p::LaurentPoly)::LaurentPoly = _lp_trim!(LaurentPoly(copy(p.terms)))
 
+Base.length(p::LaurentPoly)::Int = length(p.terms)
 Base.isempty(p::LaurentPoly)::Bool = isempty(p.terms)
 Base.keys(p::LaurentPoly) = keys(p.terms)
 Base.values(p::LaurentPoly) = values(p.terms)
@@ -120,7 +121,7 @@ Evaluate `p` at `x`. Negative exponents require a non-zero `x`.
 function lp_eval(p::LaurentPoly, x::Number)
     acc = 0 * x
     for (e, c) in p
-        acc += c * x^e
+        acc += c * (x isa Integer && e < 0 ? (x // one(x))^e : x^e)
     end
     acc
 end
@@ -129,7 +130,7 @@ end
     lp_show_string(p::LaurentPoly; var = "t") -> String
 
 Render in conventional mathematical notation, highest exponent first,
-e.g. `-t^-4 + t^-3 + t^-1`. The zero polynomial renders as `0`.
+e.g. `t^-1 + t^-3 - t^-4`. The zero polynomial renders as `0`.
 """
 function lp_show_string(p::LaurentPoly; var::String = "t")::String
     p = _lp_trimmed(p)
